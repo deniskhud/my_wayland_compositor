@@ -21,7 +21,7 @@ struct client_xdg_toplevel {
 
 	struct wl_listener request_move;
 	struct wl_listener request_resize;
-	//struct wl_listener request_maximize;
+	struct wl_listener request_maximize;
 	struct wl_listener request_fullscreen;
 
 	//tree
@@ -43,7 +43,7 @@ void xdg_toplevel_commit(struct wl_listener* listener, void* data);
 void xdg_toplevel_request_move(struct wl_listener* listener, void* data);
 void xdg_toplevel_request_resize(struct wl_listener* listener, void* data);
 void xdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data);
-
+void xdg_toplevel_request_maximize(struct wl_listener* listener, void* data);
 
 
 void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data);
@@ -66,5 +66,8 @@ struct client_xdg_toplevel *desktop_toplevel_at(
 struct wlr_box* client_get_geometry(struct client_xdg_toplevel* toplevel);
 
 void client_set_size(struct client_xdg_toplevel* toplevel, uint32_t width, uint32_t height);
+
+
+void arrange_windows(struct server* server);
 
 #endif //CLIENT_H

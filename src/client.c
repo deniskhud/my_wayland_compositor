@@ -48,8 +48,8 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	client_toplevel->request_resize.notify = xdg_toplevel_request_resize;
 	wl_signal_add(&xdg_toplevel->events.request_resize, &client_toplevel->request_resize);
 
-	/*client_toplevel->request_maximize.notify = xdg_toplevel_request_maximize;
-	wl_signal_add(&xdg_toplevel->events.request_maximize, &client_toplevel->request_maximize);*/
+	client_toplevel->request_maximize.notify = xdg_toplevel_request_maximize;
+	wl_signal_add(&xdg_toplevel->events.request_maximize, &client_toplevel->request_maximize);
 
 	client_toplevel->request_fullscreen.notify = xdg_toplevel_request_fullscreen;
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &client_toplevel->request_fullscreen);
@@ -60,7 +60,7 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 void xdg_toplevel_map(struct wl_listener* listener, void* data) {
 	wlr_log(WLR_INFO, "MAPPED %p", listener);
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
-
+	arrange_windows(client_toplevel->server);
 
 
 }
@@ -82,12 +82,17 @@ void xdg_toplevel_request_move(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_move);
 }
 void xdg_toplevel_request_resize(struct wl_listener* listener, void* data) {
-
+	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_resize);
 }
 void xdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_fullscreen);
+	wlr_xdg_toplevel_set_fullscreen(toplevel->xdg_toplevel, true);
+}
 
-
+void xdg_toplevel_request_maximize(struct wl_listener* listener, void* data) {
+	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_maximize);
+	wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
+	wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
 }
 
 
@@ -110,10 +115,12 @@ void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 	wl_list_remove(&toplevel->map.link);
 	wl_list_remove(&toplevel->unmap.link);
 	wl_list_remove(&toplevel->request_fullscreen.link);
+	wl_list_remove(&toplevel->request_maximize.link);
 	wl_list_remove(&toplevel->request_move.link);
 	wl_list_remove(&toplevel->request_resize.link);
 	wl_list_remove(&toplevel->destroy.link);
 
+	arrange_windows(toplevel->server);
 	free(toplevel);
 	wlr_log(WLR_INFO, "Client xdg_toplevel destroyed");
 }
@@ -189,3 +196,30 @@ void client_set_size(struct client_xdg_toplevel* toplevel, uint32_t width, uint3
 	wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, (int32_t)width, (int32_t)height);
 }
 
+void arrange_windows(struct server* server) {
+	int count = 0;
+	struct client_xdg_toplevel* client;
+
+	wl_list_for_each(client, &server->clients, link) {
+		count++;
+	}
+
+	if (count == 0) return;
+	wlr_log(WLR_INFO, "Client %d (%d clients)", count, count);
+	int screen_w = server->output->wlr_output->width;
+	int screen_h = server->output->wlr_output->height;
+	wlr_log(WLR_INFO, "OUTPUT COORDS %i, %i" , screen_h, screen_w);
+	int each_w = screen_w / count;
+
+	int index = 0;
+	wl_list_for_each(client, &server->clients, link) {
+		int x = each_w * index;
+		int y = 0;
+
+		client_set_size(client, each_w, screen_h);
+
+		wlr_scene_node_set_position(&client->scene_tree->node, x, y);
+
+		index++;
+	}
+}

@@ -134,14 +134,23 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 				wl_container_of(server->clients.prev, next_toplevel, link);
 			focus_toplevel(next_toplevel);
 			break;
-		case XKB_KEY_q:
-
+		case XKB_KEY_q: {
 			//check if any client exist (if not check it will crash)
 			if (wl_list_empty(&server->clients)) break;
 			// otherwise, send close to client
-			struct client_xdg_toplevel* toplevel = wl_container_of(server->clients.next, toplevel, link);
+			struct client_xdg_toplevel *toplevel = wl_container_of(server->clients.next, toplevel, link);
 			if (toplevel->xdg_toplevel != NULL) wlr_xdg_toplevel_send_close(toplevel->xdg_toplevel);
+		}
+			break;
 
+		case XKB_KEY_f:
+			int result = system("/home/khud/projects/compositor/src/trying.sh foot");
+			if (result == -1) {
+				perror("system ошибка запуска скрипта");
+			}
+			else {
+				printf("все ок");
+			}
 			break;
 		default:
 			return false;

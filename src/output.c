@@ -21,6 +21,9 @@ void server_new_output(struct wl_listener* listener, void* data) {
 	wlr_output_state_finish(&state);
 
 	struct server_output* output = calloc(1, sizeof(struct server_output));
+	//не забыть подвязать монитор к серверу
+	server->output = output;
+
 	output->wlr_output = wlr_output;
 	output->server = server;
 
