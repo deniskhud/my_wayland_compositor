@@ -8,6 +8,7 @@
 
 #include <wlr/types/wlr_output_layout.h>
 
+#include "include/node.h"
 #include "include/output.h"
 
 void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
@@ -16,9 +17,6 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	struct wlr_xdg_toplevel* xdg_toplevel = data;
 
 	struct client_xdg_toplevel* client_toplevel = calloc(1, sizeof(struct client_xdg_toplevel));
-
-
-
 
 	client_toplevel->xdg_toplevel = xdg_toplevel;
 	client_toplevel->server = server;
@@ -55,17 +53,31 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &client_toplevel->request_fullscreen);
 
 	wl_list_insert(&client_toplevel->server->clients, &client_toplevel->link);
+
 }
 
 void xdg_toplevel_map(struct wl_listener* listener, void* data) {
-	wlr_log(WLR_INFO, "MAPPED %p", listener);
+	//wlr_log(WLR_INFO, "MAPPED %p", listener);
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
+
+	// if we have no open windows yet, add one to tree
+	if (client_toplevel->server->root == NULL) {
+		client_toplevel->server->root = node_create_leaf(client_toplevel);
+	}
+	//unless we have a focused window, then add a split node
+	else if (client_toplevel->server->current_focus){
+
+	}
+
 	arrange_windows(client_toplevel->server);
+	//focus to new window
+	focus_toplevel(client_toplevel);
+
 
 
 }
 void xdg_toplevel_unmap(struct wl_listener* listener, void* data) {
-
+	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
 }
 void xdg_toplevel_commit(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, commit);
@@ -74,7 +86,7 @@ void xdg_toplevel_commit(struct wl_listener* listener, void* data) {
 		client_set_size(client_toplevel, 800, 600);
 	}
 	client_toplevel->box = client_get_geometry(client_toplevel);
-	wlr_log(WLR_INFO, "current geometry is -> w : %i, h : %i, x : %i, y : %i", client_toplevel->box->width, client_toplevel->box->height, client_toplevel->box->x, client_toplevel->box->y);
+	//wlr_log(WLR_INFO, "current geometry is -> w : %i, h : %i, x : %i, y : %i", client_toplevel->box->width, client_toplevel->box->height, client_toplevel->box->x, client_toplevel->box->y);
 
 
 }
@@ -128,10 +140,6 @@ void client_xdg_popup_destroy(struct wl_listener* listener, void* data) {
 
 }
 
-
-
-
-
 void focus_toplevel(struct client_xdg_toplevel* toplevel) {
 	struct server* server = toplevel->server;
 	struct wlr_seat* seat = server->seat;
@@ -159,6 +167,10 @@ void focus_toplevel(struct client_xdg_toplevel* toplevel) {
 		wlr_seat_keyboard_notify_enter(seat, surface,
 			keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
 	}
+
+	server->current_focus = toplevel;
+
+	wlr_log(WLR_INFO, "Current focused toplevel is %s", server->current_focus->xdg_toplevel->app_id);
 }
 
 struct client_xdg_toplevel *desktop_toplevel_at(
@@ -185,8 +197,12 @@ struct client_xdg_toplevel *desktop_toplevel_at(
 		tree = tree->node.parent;
 	}
 	return tree->node.data;
+}
+
+void set_focus(struct client_xdg_toplevel* toplevel) {
 
 }
+
 
 struct wlr_box* client_get_geometry(struct client_xdg_toplevel* toplevel) {
 	return &toplevel->xdg_toplevel->base->geometry;

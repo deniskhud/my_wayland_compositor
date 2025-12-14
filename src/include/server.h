@@ -51,6 +51,7 @@ struct server {
 	struct wl_listener new_xdg_popup;
 	//struct wl_list toplevels;
 
+	struct client_xdg_toplevel* current_focus;
 
 
 	const char* socket;

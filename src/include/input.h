@@ -28,4 +28,7 @@ void keyboard_handle_modifiers(struct wl_listener* listener, void* data);
 void keyboard_handle_key(struct wl_listener* listener, void* data);
 void keyboard_handle_destroy(struct wl_listener* listener, void* data);
 static bool handle_keybinding(struct server *server, xkb_keysym_t sym);
+
+static void run_window(const char* name);
+
 #endif //INPUT_H

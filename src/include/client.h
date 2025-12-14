@@ -57,11 +57,15 @@ struct server_layer_view {
 
 
 
-
+//focus in window under a cursor
 void focus_toplevel(struct client_xdg_toplevel* toplevel);
+
 struct client_xdg_toplevel *desktop_toplevel_at(
 		struct server *server, double lx, double ly,
 		struct wlr_surface **surface, double *sx, double *sy);
+
+
+void set_focus(struct client_xdg_toplevel* toplevel);
 
 struct wlr_box* client_get_geometry(struct client_xdg_toplevel* toplevel);
 

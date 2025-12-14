@@ -143,17 +143,46 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 		}
 			break;
 
-		case XKB_KEY_f:
-			int result = system("/home/khud/projects/compositor/src/trying.sh foot");
-			if (result == -1) {
-				perror("system ошибка запуска скрипта");
-			}
-			else {
-				printf("все ок");
-			}
+		case XKB_KEY_F2:
+		case XKB_KEY_w:
+			run_window("firefox");
+		case XKB_KEY_e:
+				run_window("dolphin");
 			break;
+		case XKB_KEY_f:
+			run_window("foot");
+			break;
+
+		case XKB_KEY_d:
+			uint32_t result = wlr_xdg_toplevel_set_maximized(server->current_focus->xdg_toplevel, true);
+			wlr_log(WLR_INFO, "Fullscreen set to true");
 		default:
 			return false;
 	}
 	return true;
+}
+
+static void run_window(const char* name) {
+	pid_t pid = fork();
+
+	if (pid == 0) {
+		// child
+		setsid();
+
+		setenv("WAYLAND_DISPLAY", "wayland-0", 1);
+		// setenv("XDG_RUNTIME_DIR", "/run/user/1000", 1);
+
+		char *const argv[] = {
+			(char *)name,
+			NULL
+		};
+
+		execvp(name, argv);
+
+		perror("execvp");
+		_exit(1);
+	}
+	else if (pid < 0) {
+		perror("fork");
+	}
 }

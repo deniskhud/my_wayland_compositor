@@ -107,9 +107,9 @@ bool server_start(struct server* server) {
 	server->new_xdg_toplevel.notify = client_new_xdg_toplevel;
 	wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_xdg_toplevel);
 
-
+	server->current_focus = NULL;
 	//root
-	struct node *root = NULL;
+	server->root = NULL;
 
 
 
