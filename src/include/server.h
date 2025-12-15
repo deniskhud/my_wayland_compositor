@@ -23,7 +23,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <wlr/backend/session.h>
 #include <assert.h>
-//#include <wlr/types/wlr_layer_shell_v1.h>
+#include <wlr/types/wlr_layer_shell_v1.h>
 
 struct server {
 	struct wl_display *wl_display;
@@ -41,14 +41,15 @@ struct server {
 
 	//client
 	struct wl_list clients;
-
-
-
-
 	struct wlr_xdg_shell *xdg_shell;
+
+	struct wl_list layers;
+	struct wlr_layer_shell_v1 *layer_shell;
 
 	struct wl_listener new_xdg_toplevel;
 	struct wl_listener new_xdg_popup;
+
+	struct wl_listener new_layer_surface;
 	//struct wl_list toplevels;
 
 	struct client_xdg_toplevel* current_focus;

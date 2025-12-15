@@ -4,8 +4,16 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <stdlib.h>
 
-struct client_xdg_toplevel {
 
+struct client_layer {
+	struct wlr_layer_surface_v1 *layer;
+	struct wl_listener destroy;
+
+	struct server* server;
+	struct wl_list link;
+};
+
+struct client_xdg_toplevel {
 
 	struct wlr_xdg_toplevel *xdg_toplevel;
 	struct wl_list link;
@@ -23,6 +31,11 @@ struct client_xdg_toplevel {
 	struct wl_listener request_resize;
 	struct wl_listener request_maximize;
 	struct wl_listener request_fullscreen;
+	struct wl_listener request_minimize;
+	struct wl_listener set_title;
+	struct wl_listener show_window_menu;
+	struct wl_listener set_app_id;
+	struct wl_listener set_parent;
 
 	//tree
 	struct node* leaf;
@@ -37,6 +50,9 @@ struct client_xdg_popup {
 void client_new_xdg_toplevel(struct wl_listener* listener, void* data);
 void client_new_xdg_popup(struct wl_listener* listener, void* data);
 
+void client_new_layer_surface(struct wl_listener* listener, void* data);
+void client_layer_destroy(struct wl_listener* listener, void* data);
+
 void xdg_toplevel_map(struct wl_listener* listener, void* data);
 void xdg_toplevel_unmap(struct wl_listener* listener, void* data);
 void xdg_toplevel_commit(struct wl_listener* listener, void* data);
@@ -44,6 +60,15 @@ void xdg_toplevel_request_move(struct wl_listener* listener, void* data);
 void xdg_toplevel_request_resize(struct wl_listener* listener, void* data);
 void xdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data);
 void xdg_toplevel_request_maximize(struct wl_listener* listener, void* data);
+
+void xdg_toplevel_request_minimize(struct wl_listener* listener, void* data);
+void xdg_toplevel_set_app_id(struct wl_listener* listener, void* data);
+void xdg_toplevel_set_title(struct wl_listener* listener, void* data);
+void xdg_toplevel_set_parent(struct wl_listener* listener, void* data);
+void xdg_toplevel_show_window_menu(struct wl_listener* listener, void* data);
+
+
+
 
 
 void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data);

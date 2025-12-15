@@ -22,10 +22,6 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	client_toplevel->server = server;
 
 	//добавление в сцену
-	client_toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(&client_toplevel->server->scene->tree, xdg_toplevel->base);
-	client_toplevel->scene_tree->node.data = client_toplevel;
-	xdg_toplevel->base->data = client_toplevel->scene_tree;
 
 	/* Listen to the various events it can emit */
 	client_toplevel->map.notify = xdg_toplevel_map;
@@ -52,6 +48,25 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	client_toplevel->request_fullscreen.notify = xdg_toplevel_request_fullscreen;
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &client_toplevel->request_fullscreen);
 
+	//
+	client_toplevel->request_minimize.notify = xdg_toplevel_request_minimize;
+	wl_signal_add(&xdg_toplevel->events.request_minimize, &client_toplevel->request_minimize);
+
+	//
+	client_toplevel->set_title.notify = xdg_toplevel_set_title;
+	wl_signal_add(&xdg_toplevel->events.set_title, &client_toplevel->set_title);
+
+	//
+	client_toplevel->show_window_menu.notify = xdg_toplevel_show_window_menu;
+	wl_signal_add(&xdg_toplevel->events.request_show_window_menu, &client_toplevel->show_window_menu);
+
+	//
+	client_toplevel->set_app_id.notify = xdg_toplevel_set_app_id;
+	wl_signal_add(&xdg_toplevel->events.set_app_id, &client_toplevel->set_app_id);
+
+	client_toplevel->set_parent.notify = xdg_toplevel_set_parent;
+	wl_signal_add(&xdg_toplevel->events.set_parent, &client_toplevel->set_parent);
+
 	wl_list_insert(&client_toplevel->server->clients, &client_toplevel->link);
 
 }
@@ -66,24 +81,48 @@ void xdg_toplevel_map(struct wl_listener* listener, void* data) {
 	}
 	//unless we have a focused window, then add a split node
 	else if (client_toplevel->server->current_focus){
-
 	}
+	//добавление в сцену
+	client_toplevel->scene_tree =
+		wlr_scene_xdg_surface_create(&client_toplevel->server->scene->tree, client_toplevel->xdg_toplevel->base);
+	client_toplevel->scene_tree->node.data = client_toplevel;
+	client_toplevel->xdg_toplevel->base->data = client_toplevel->scene_tree;
+
+
 
 	arrange_windows(client_toplevel->server);
 	//focus to new window
 	focus_toplevel(client_toplevel);
 
+}
 
+void client_new_layer_surface(struct wl_listener* listener, void* data) {
+	struct server* server = wl_container_of(listener, server, new_layer_surface);
+
+	struct wlr_layer_shell_v1* layer_shell = data;
+
+	struct client_layer* layer = calloc(1, sizeof(struct client_layer));
+	wl_signal_add(&layer->layer->events.destroy, &layer->destroy);
+	layer->destroy.notify = client_layer_destroy;
 
 }
+
+void client_layer_destroy(struct wl_listener* listener, void* data) {
+	struct client_layer* layer = wl_container_of(listener, layer, destroy);
+	wl_list_remove(&layer->destroy.link);
+	free(layer);
+}
+
 void xdg_toplevel_unmap(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
+
+
 }
 void xdg_toplevel_commit(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, commit);
 
 	if (client_toplevel->xdg_toplevel->base->initial_commit) {
-		client_set_size(client_toplevel, 800, 600);
+		wlr_xdg_surface_schedule_configure(client_toplevel->xdg_toplevel->base);
 	}
 	client_toplevel->box = client_get_geometry(client_toplevel);
 	//wlr_log(WLR_INFO, "current geometry is -> w : %i, h : %i, x : %i, y : %i", client_toplevel->box->width, client_toplevel->box->height, client_toplevel->box->x, client_toplevel->box->y);
@@ -103,8 +142,24 @@ void xdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
 
 void xdg_toplevel_request_maximize(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_maximize);
-	wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
-	wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
+	//wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
+	//wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
+}
+
+void xdg_toplevel_request_minimize(struct wl_listener* listener, void* data) {
+
+}
+void xdg_toplevel_set_app_id(struct wl_listener* listener, void* data) {
+
+}
+void xdg_toplevel_set_title(struct wl_listener* listener, void* data) {
+
+}
+void xdg_toplevel_set_parent(struct wl_listener* listener, void* data) {
+
+}
+void xdg_toplevel_show_window_menu(struct wl_listener* listener, void* data) {
+
 }
 
 
@@ -126,11 +181,18 @@ void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 	wl_list_remove(&toplevel->commit.link);
 	wl_list_remove(&toplevel->map.link);
 	wl_list_remove(&toplevel->unmap.link);
+
 	wl_list_remove(&toplevel->request_fullscreen.link);
 	wl_list_remove(&toplevel->request_maximize.link);
 	wl_list_remove(&toplevel->request_move.link);
 	wl_list_remove(&toplevel->request_resize.link);
 	wl_list_remove(&toplevel->destroy.link);
+	wl_list_remove(&toplevel->request_minimize.link);
+	wl_list_remove(&toplevel->set_app_id.link);
+	wl_list_remove(&toplevel->set_parent.link);
+	wl_list_remove(&toplevel->set_title.link);
+	wl_list_remove(&toplevel->show_window_menu.link);
+
 
 	arrange_windows(toplevel->server);
 	free(toplevel);
@@ -239,3 +301,4 @@ void arrange_windows(struct server* server) {
 		index++;
 	}
 }
+

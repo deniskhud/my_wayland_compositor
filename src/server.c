@@ -67,6 +67,7 @@ bool server_init(struct server* server) {
 
 
 	server->xdg_shell = wlr_xdg_shell_create(server->wl_display, 3);
+	server->layer_shell = wlr_layer_shell_v1_create(server->wl_display, 3);
 
 	//input
 	wl_list_init(&server->keyboards);
@@ -107,6 +108,9 @@ bool server_start(struct server* server) {
 	server->new_xdg_toplevel.notify = client_new_xdg_toplevel;
 	wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_xdg_toplevel);
 
+	server->new_layer_surface.notify = client_new_layer_surface;
+	wl_signal_add(&server->layer_shell->events.new_surface, &server->new_layer_surface);
+
 	server->current_focus = NULL;
 	//root
 	server->root = NULL;
@@ -133,10 +137,10 @@ void server_destroy(struct server* server) {
 	wl_list_remove(&server->new_output.link);
 	wl_list_remove(&server->new_xdg_toplevel.link);
 	//wl_list_remove(&server->new_xdg_popup.link);
+	wl_list_remove(&server->new_layer_surface.link);
 
 	wl_list_remove(&server->keyboards);
-
-	wlr_seat_destroy(server->seat);
+	//wlr_seat_destroy(server->seat);
 
 	wlr_allocator_destroy(server->allocator);
 	wlr_renderer_destroy(server->renderer);

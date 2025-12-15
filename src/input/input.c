@@ -147,7 +147,7 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 		case XKB_KEY_w:
 			run_window("firefox");
 		case XKB_KEY_e:
-				run_window("dolphin");
+				run_window("nautilus");
 			break;
 		case XKB_KEY_f:
 			run_window("foot");
@@ -176,9 +176,7 @@ static void run_window(const char* name) {
 			(char *)name,
 			NULL
 		};
-
 		execvp(name, argv);
-
 		perror("execvp");
 		_exit(1);
 	}
