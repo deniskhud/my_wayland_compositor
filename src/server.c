@@ -24,9 +24,6 @@ bool server_init(struct server* server) {
 	if (!server->wlr_session) {
 		wlr_log(WLR_INFO, "Failed to create wlr_session");
 	}
-
-
-
 	//
 	server->backend = wlr_backend_autocreate(server->wl_event_loop, &server->wlr_session);
 	if (!server->backend) {
@@ -37,9 +34,6 @@ bool server_init(struct server* server) {
 	if (!server->renderer) {
 		wlr_log(WLR_ERROR, "Failed to create wlr_renderer");
 	}
-
-	wlr_renderer_init_wl_display(server->renderer, server->wl_display);
-
 	//
 	server->allocator = wlr_allocator_autocreate(server->backend, server->renderer);
 	if (!server->allocator) {
@@ -52,22 +46,39 @@ bool server_init(struct server* server) {
 	}
 	wlr_subcompositor_create(server->wl_display);
 	wlr_data_device_manager_create(server->wl_display);
-	//
+	wlr_renderer_init_wl_display(server->renderer, server->wl_display);
+
+	server->scene = wlr_scene_create();
+	server->output_layout = wlr_output_layout_create(server->wl_display);
+
+	server->scene_layout = wlr_scene_attach_output_layout(server->scene, server->output_layout);
+
 
 	wl_list_init(&server->outputs);
 	server->new_output.notify = server_new_output;
 	wl_signal_add(&server->backend->events.new_output, &server->new_output);
 
-	server->scene = wlr_scene_create();
-	server->output_layout = wlr_output_layout_create(server->wl_display);
-	server->scene_layout = wlr_scene_attach_output_layout(server->scene, server->output_layout);
 
+	//trees
+	server->layers.background = wlr_scene_tree_create(&server->scene->tree);
+	server->layers.tiling = wlr_scene_tree_create(&server->scene->tree);
+	server->layers.floating = wlr_scene_tree_create(&server->scene->tree);
+	server->layers.overlay = wlr_scene_tree_create(&server->scene->tree);
 
 	wl_list_init(&server->clients);
-
+	wl_list_init(&server->shell_layers);
 
 	server->xdg_shell = wlr_xdg_shell_create(server->wl_display, 3);
-	server->layer_shell = wlr_layer_shell_v1_create(server->wl_display, 3);
+	server->layer_shell = wlr_layer_shell_v1_create(server->wl_display, 1);
+
+	if (!server->layer_shell) {
+		wlr_log(WLR_ERROR, "Failed to create wlr_layer_shell");
+	}
+	else {
+		wlr_log(WLR_INFO, "Created wlr_layer_shell");
+	}
+
+
 
 	//input
 	wl_list_init(&server->keyboards);
@@ -107,16 +118,13 @@ bool server_start(struct server* server) {
 
 	server->new_xdg_toplevel.notify = client_new_xdg_toplevel;
 	wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_xdg_toplevel);
+	server->new_xdg_popup.notify = client_new_xdg_popup;
+	wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_xdg_popup);
 
 	server->new_layer_surface.notify = client_new_layer_surface;
 	wl_signal_add(&server->layer_shell->events.new_surface, &server->new_layer_surface);
 
 	server->current_focus = NULL;
-	//root
-	server->root = NULL;
-
-
-
 
 	return true;
 
@@ -136,7 +144,7 @@ void server_destroy(struct server* server) {
 	wl_list_remove(&server->new_input.link);
 	wl_list_remove(&server->new_output.link);
 	wl_list_remove(&server->new_xdg_toplevel.link);
-	//wl_list_remove(&server->new_xdg_popup.link);
+	wl_list_remove(&server->new_xdg_popup.link);
 	wl_list_remove(&server->new_layer_surface.link);
 
 	wl_list_remove(&server->keyboards);
@@ -149,6 +157,11 @@ void server_destroy(struct server* server) {
 	wl_display_destroy(server->wl_display);
 
 	//не забыть удалить курсоры листы и прочую
+}
+
+void create_decoration(struct wl_listener* listener, void* data) {
+	struct wlr_xdg_toplevel_decoration_v1* d = data;
+	struct client_xdg_toplevel* toplevel = d->toplevel->base->data;
 }
 
 

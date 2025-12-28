@@ -12,12 +12,13 @@ void server_new_output(struct wl_listener* listener, void* data) {
 	wlr_output_state_init(&state);
 	wlr_output_state_set_enabled(&state, true);
 
-	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
-	if (mode != NULL) {
-		wlr_output_state_set_mode(&state, mode);
+	if (!wlr_output_commit_state(wlr_output, &state)) {
+		wlr_log(WLR_ERROR, "Failed to commit output state");
+		wlr_log(WLR_ERROR, "Failed to commit output state");
+		wlr_log(WLR_ERROR, "Failed to commit output state");
+		wlr_log(WLR_ERROR, "Failed to commit output state");
 	}
 
-	wlr_output_commit_state(wlr_output, &state);
 	wlr_output_state_finish(&state);
 
 	struct server_output* output = calloc(1, sizeof(struct server_output));
@@ -40,8 +41,8 @@ void server_new_output(struct wl_listener* listener, void* data) {
 
 	struct wlr_output_layout_output *l_output = wlr_output_layout_add_auto(server->output_layout,
 		wlr_output);
-	struct wlr_scene_output *scene_output = wlr_scene_output_create(server->scene, wlr_output);
-	wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
+	output->scene_output = wlr_scene_output_create(server->scene, wlr_output);
+	wlr_scene_output_layout_add_output(server->scene_layout, l_output, output->scene_output);
 
 	wlr_log(WLR_INFO, "Created new output %s", output->wlr_output->name);
 }

@@ -3,6 +3,9 @@
 
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_keyboard.h>
+
+struct client_xdg_toplevel;
+
 enum cursor_mode {
 	CURSOR_PRESSED,
 	CURSOR_MOVE,
@@ -18,8 +21,10 @@ struct server_cursor {
 	struct wlr_cursor *wlr_cursor;
 	struct wlr_xcursor_manager* cursor_manager;
 
-	//enum cursor_mode cursor_mode;
+	struct wlr_pointer_button_event* event;
 
+	enum cursor_mode cursor_mode;
+	double grab_x, grab_y;
 	//listeners
 	struct wl_listener cursor_motion;
 	struct wl_listener cursor_motion_absolute;
@@ -52,6 +57,9 @@ void process_cursor_motion(struct server_cursor* cursor, uint32_t time);
 
 void process_cursor_move(struct server_cursor* cursor);
 
+void process_cursor_resize(struct server_cursor* cursor);
 
 void reset_cursor_mode(struct server_cursor* cursor);
+
+void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mode, uint32_t edges);
 #endif //CURSOR_H

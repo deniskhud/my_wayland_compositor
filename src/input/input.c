@@ -55,6 +55,7 @@ void server_new_keyboard(struct server* server, struct wlr_input_device* device)
 	keyboard->destroy.notify = keyboard_handle_destroy;
 	wl_signal_add(&device->events.destroy, &keyboard->destroy);
 
+	//set a keyboard to the seat
 	wlr_seat_set_keyboard(server->seat, keyboard->wlr_keyboard);
 
 
@@ -79,11 +80,15 @@ void keyboard_handle_key(struct wl_listener* listener, void* data) {
 		wl_container_of(listener, keyboard, key);
 	struct server *server = keyboard->server;
 	struct wlr_keyboard_key_event *event = data;
+
 	struct wlr_seat *seat = server->seat;
 
 	/* Translate libinput keycode -> xkbcommon */
 	uint32_t keycode = event->keycode + 8;
-	wlr_log(WLR_INFO, "The key %d has been pressed ", keycode);
+	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+		wlr_log(WLR_INFO, "The key %d has been pressed ", keycode);
+	}
+
 	/* Get a list of keysyms based on the keymap for this keyboard */
 	const xkb_keysym_t *syms;
 	int nsyms = xkb_state_key_get_syms(
@@ -91,6 +96,27 @@ void keyboard_handle_key(struct wl_listener* listener, void* data) {
 
 	bool handled = false;
 	uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->wlr_keyboard);
+
+	if ((modifiers & WLR_MODIFIER_LOGO )
+		&& event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+		for (int i = 0; i < nsyms; i++) {
+			if (syms[i] == XKB_KEY_c) {
+				if (server->current_focus->mode != WINDOW_FLOATING) {
+					client_set_floating_mode(server->current_focus);
+				}
+				else {
+					client_set_tiling_mode(server->current_focus);
+				}
+
+			}
+		}
+	}
+	if ((modifiers & WLR_MODIFIER_CTRL) && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+		struct wlr_pointer_button_event* e = server->cursor->event;
+		if (e->state == WL_POINTER_BUTTON_STATE_PRESSED) {
+			client_set_holding_mode(server->current_focus);
+		}
+	}
 	if ((modifiers & WLR_MODIFIER_ALT) &&
 			event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 
@@ -154,8 +180,12 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 			break;
 
 		case XKB_KEY_d:
+			if (wl_list_empty(&server->clients)) break;
+
 			uint32_t result = wlr_xdg_toplevel_set_maximized(server->current_focus->xdg_toplevel, true);
 			wlr_log(WLR_INFO, "Fullscreen set to true");
+		case XKB_KEY_h:
+			run_window("waybar");
 		default:
 			return false;
 	}

@@ -7,7 +7,7 @@
 
 
 #include <wlr/types/wlr_output_layout.h>
-
+#include "wlr-layer-shell-unstable-v1-protocol.h"
 #include "include/node.h"
 #include "include/output.h"
 
@@ -23,72 +23,70 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 
 	//добавление в сцену
 
+	//default mode
+	client_toplevel->mode = WINDOW_TILING;
+
 	/* Listen to the various events it can emit */
-	client_toplevel->map.notify = xdg_toplevel_map;
+	client_toplevel->map.notify = mxdg_toplevel_map;
 	wl_signal_add(&xdg_toplevel->base->surface->events.map, &client_toplevel->map);
 
-	client_toplevel->unmap.notify = xdg_toplevel_unmap;
+	client_toplevel->unmap.notify = mxdg_toplevel_unmap;
 	wl_signal_add(&xdg_toplevel->base->surface->events.unmap, &client_toplevel->unmap);
 
-	client_toplevel->commit.notify = xdg_toplevel_commit;
+	client_toplevel->commit.notify = mxdg_toplevel_commit;
 	wl_signal_add(&xdg_toplevel->base->surface->events.commit, &client_toplevel->commit);
 
 	client_toplevel->destroy.notify = client_xdg_toplevel_destroy;
 	wl_signal_add(&xdg_toplevel->events.destroy, &client_toplevel->destroy);
 
-	client_toplevel->request_move.notify = xdg_toplevel_request_move;
+	client_toplevel->request_move.notify = mxdg_toplevel_request_move;
 	wl_signal_add(&xdg_toplevel->events.request_move, &client_toplevel->request_move);
 
-	client_toplevel->request_resize.notify = xdg_toplevel_request_resize;
+	client_toplevel->request_resize.notify = mxdg_toplevel_request_resize;
 	wl_signal_add(&xdg_toplevel->events.request_resize, &client_toplevel->request_resize);
 
-	client_toplevel->request_maximize.notify = xdg_toplevel_request_maximize;
+	client_toplevel->request_maximize.notify = mxdg_toplevel_request_maximize;
 	wl_signal_add(&xdg_toplevel->events.request_maximize, &client_toplevel->request_maximize);
 
-	client_toplevel->request_fullscreen.notify = xdg_toplevel_request_fullscreen;
+	client_toplevel->request_fullscreen.notify = mxdg_toplevel_request_fullscreen;
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &client_toplevel->request_fullscreen);
 
 	//
-	client_toplevel->request_minimize.notify = xdg_toplevel_request_minimize;
+	client_toplevel->request_minimize.notify = mxdg_toplevel_request_minimize;
 	wl_signal_add(&xdg_toplevel->events.request_minimize, &client_toplevel->request_minimize);
 
 	//
-	client_toplevel->set_title.notify = xdg_toplevel_set_title;
+	client_toplevel->set_title.notify = mxdg_toplevel_set_title;
 	wl_signal_add(&xdg_toplevel->events.set_title, &client_toplevel->set_title);
 
 	//
-	client_toplevel->show_window_menu.notify = xdg_toplevel_show_window_menu;
+	client_toplevel->show_window_menu.notify = mxdg_toplevel_show_window_menu;
 	wl_signal_add(&xdg_toplevel->events.request_show_window_menu, &client_toplevel->show_window_menu);
 
 	//
-	client_toplevel->set_app_id.notify = xdg_toplevel_set_app_id;
+	client_toplevel->set_app_id.notify = mxdg_toplevel_set_app_id;
 	wl_signal_add(&xdg_toplevel->events.set_app_id, &client_toplevel->set_app_id);
 
-	client_toplevel->set_parent.notify = xdg_toplevel_set_parent;
+	client_toplevel->set_parent.notify = mxdg_toplevel_set_parent;
 	wl_signal_add(&xdg_toplevel->events.set_parent, &client_toplevel->set_parent);
 
 	wl_list_insert(&client_toplevel->server->clients, &client_toplevel->link);
 
 }
 
-void xdg_toplevel_map(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_map(struct wl_listener* listener, void* data) {
 	//wlr_log(WLR_INFO, "MAPPED %p", listener);
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
 
 	// if we have no open windows yet, add one to tree
-	if (client_toplevel->server->root == NULL) {
-		client_toplevel->server->root = node_create_leaf(client_toplevel);
-	}
+
 	//unless we have a focused window, then add a split node
-	else if (client_toplevel->server->current_focus){
-	}
+
 	//добавление в сцену
 	client_toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(&client_toplevel->server->scene->tree, client_toplevel->xdg_toplevel->base);
+		wlr_scene_xdg_surface_create(client_toplevel->server->layers.tiling, client_toplevel->xdg_toplevel->base);
 	client_toplevel->scene_tree->node.data = client_toplevel;
 	client_toplevel->xdg_toplevel->base->data = client_toplevel->scene_tree;
-
-
 
 	arrange_windows(client_toplevel->server);
 	//focus to new window
@@ -98,27 +96,87 @@ void xdg_toplevel_map(struct wl_listener* listener, void* data) {
 
 void client_new_layer_surface(struct wl_listener* listener, void* data) {
 	struct server* server = wl_container_of(listener, server, new_layer_surface);
+	wlr_log(WLR_INFO, "New layer surface, вошли в функцию ");
 
-	struct wlr_layer_shell_v1* layer_shell = data;
+	struct wlr_layer_surface_v1* layer_surface = data;
+	struct wlr_surface* surface = layer_surface->surface;
+
+	struct wlr_scene_tree* scene_layer = server->layers.overlay;
+
+	if (!layer_surface->output &&
+		!(layer_surface->output = server->output->wlr_output ? server->output->wlr_output
+			: NULL)) {
+		wlr_layer_surface_v1_destroy(layer_surface);
+		return;
+	}
 
 	struct client_layer* layer = calloc(1, sizeof(struct client_layer));
-	wl_signal_add(&layer->layer->events.destroy, &layer->destroy);
-	layer->destroy.notify = client_layer_destroy;
 
+
+
+	layer->commit.notify = client_layer_destroy;
+	wl_signal_add(&layer->layer_surface->events.destroy, &layer->commit);
+
+	layer->destroy.notify = client_layer_destroy;
+	wl_signal_add(&layer->layer_surface->events.destroy, &layer->destroy);
+
+	layer->new_popup.notify = client_new_xdg_popup; //затычка
+	wl_signal_add(&layer->layer_surface->events.new_popup, &layer->new_popup);
+
+	layer->unmap.notify = client_layer_unmap;
+	wl_signal_add(&layer->layer_surface->surface->events.unmap, &layer->unmap);
+
+	layer->layer_surface = layer_surface;
+	layer->server = server;
+	layer->output = layer_surface->output->data;
+	layer->scene = layer->scene_layer->tree;
+
+	layer->popups = surface->data = wlr_scene_tree_create(server->layers.overlay);
+
+	layer->scene->node.data = layer->popups->node.data = layer;
+
+	wl_list_insert(&server->shell_layers, &layer->link);
+	wlr_surface_send_enter(surface, layer_surface->output);
+	//wlr_layer_surface_v1_configure(layer_surface, 1920, 100);
+	wlr_log(WLR_INFO, "New layer surface created");
 }
 
 void client_layer_destroy(struct wl_listener* listener, void* data) {
 	struct client_layer* layer = wl_container_of(listener, layer, destroy);
+	//wlr_layer_surface_v1_destroy(layer->layer_surface);
+	wl_list_remove(&layer->link);
+	wl_list_remove(&layer->new_popup.link);
 	wl_list_remove(&layer->destroy.link);
+	wl_list_remove(&layer->commit.link);
+	wl_list_remove(&layer->unmap.link);
+
+	wlr_scene_node_destroy(&layer->scene->node);
+	wlr_scene_node_destroy(&layer->popups->node);
+
 	free(layer);
 }
 
-void xdg_toplevel_unmap(struct wl_listener* listener, void* data) {
+
+
+void client_layer_unmap(struct wl_listener* listener, void* data) {
+	struct client_layer* layer = wl_container_of(listener, layer, unmap);
+
+	if (layer->scene_layer) {
+		wlr_scene_node_destroy(&layer->scene_layer->tree->node);
+		layer->scene_layer = NULL;
+	}
+
+	wlr_log(WLR_INFO, "Layer unmapped");
+}
+
+
+
+void mxdg_toplevel_unmap(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
 
 
 }
-void xdg_toplevel_commit(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_commit(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, commit);
 
 	if (client_toplevel->xdg_toplevel->base->initial_commit) {
@@ -129,36 +187,38 @@ void xdg_toplevel_commit(struct wl_listener* listener, void* data) {
 
 
 }
-void xdg_toplevel_request_move(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_request_move(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_move);
+	//begin_interactive(toplevel, CURSOR_MOVE, 0);
 }
-void xdg_toplevel_request_resize(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_request_resize(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_resize);
+	//begin_interactive(toplevel, CURSOR_RESIZE, 0);
 }
-void xdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_fullscreen);
 	wlr_xdg_toplevel_set_fullscreen(toplevel->xdg_toplevel, true);
 }
 
-void xdg_toplevel_request_maximize(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_request_maximize(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_maximize);
 	//wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
 	//wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
 }
 
-void xdg_toplevel_request_minimize(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_request_minimize(struct wl_listener* listener, void* data) {
 
 }
-void xdg_toplevel_set_app_id(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_set_app_id(struct wl_listener* listener, void* data) {
 
 }
-void xdg_toplevel_set_title(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_set_title(struct wl_listener* listener, void* data) {
 
 }
-void xdg_toplevel_set_parent(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_set_parent(struct wl_listener* listener, void* data) {
 
 }
-void xdg_toplevel_show_window_menu(struct wl_listener* listener, void* data) {
+void mxdg_toplevel_show_window_menu(struct wl_listener* listener, void* data) {
 
 }
 
@@ -279,7 +339,8 @@ void arrange_windows(struct server* server) {
 	struct client_xdg_toplevel* client;
 
 	wl_list_for_each(client, &server->clients, link) {
-		count++;
+		if (client->mode == WINDOW_TILING) count++;
+
 	}
 
 	if (count == 0) return;
@@ -291,6 +352,9 @@ void arrange_windows(struct server* server) {
 
 	int index = 0;
 	wl_list_for_each(client, &server->clients, link) {
+		if (client->mode != WINDOW_TILING) {
+			continue;
+		}
 		int x = each_w * index;
 		int y = 0;
 
@@ -300,5 +364,45 @@ void arrange_windows(struct server* server) {
 
 		index++;
 	}
+}
+
+void client_set_floating_mode(struct client_xdg_toplevel* toplevel) {
+	wlr_log(WLR_INFO, "FLOATING MODE for %s", toplevel->xdg_toplevel->app_id);
+	wlr_scene_node_destroy(&toplevel->scene_tree->node);
+
+	toplevel->mode = WINDOW_FLOATING;
+
+	toplevel->scene_tree =
+		wlr_scene_xdg_surface_create(toplevel->server->layers.floating, toplevel->xdg_toplevel->base);
+	toplevel->scene_tree->node.data = toplevel;
+	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
+
+	arrange_windows(toplevel->server);
+
+}
+
+void client_set_tiling_mode(struct client_xdg_toplevel* toplevel) {
+	wlr_scene_node_destroy(&toplevel->scene_tree->node);
+
+	toplevel->mode = WINDOW_TILING;
+
+	toplevel->scene_tree =
+		wlr_scene_xdg_surface_create(toplevel->server->layers.tiling, toplevel->xdg_toplevel->base);
+	toplevel->scene_tree->node.data = toplevel;
+	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
+
+	arrange_windows(toplevel->server);
+}
+
+void client_set_holding_mode(struct client_xdg_toplevel* toplevel) {
+	wlr_scene_node_destroy(&toplevel->scene_tree->node);
+
+	toplevel->mode = WINDOW_HOLDING;
+
+	toplevel->scene_tree =
+		wlr_scene_xdg_surface_create(toplevel->server->layers.overlay, toplevel->xdg_toplevel->base);
+	toplevel->scene_tree->node.data = toplevel;
+	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
+	arrange_windows(toplevel->server);
 }
 

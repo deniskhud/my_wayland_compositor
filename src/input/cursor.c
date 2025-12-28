@@ -1,6 +1,7 @@
 #include "../include/cursor.h"
 #include "../include/server.h"
 #include "../include/client.h"
+#include "src/include/input.h"
 
 void server_new_pointer(struct server* server, struct wlr_input_device* device) {
 	wlr_cursor_attach_input_device(server->cursor->wlr_cursor, device);
@@ -13,7 +14,7 @@ void server_cursor_init(struct server_cursor* cursor) {
 	cursor->cursor_manager = wlr_xcursor_manager_create(NULL, 24);
 	wlr_xcursor_manager_load(cursor->cursor_manager, 24);
 	wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "left_ptr");
-
+	cursor->cursor_mode = CURSOR_NORMAL;
 
 	cursor->cursor_motion.notify = server_cursor_motion;
 	wl_signal_add(&cursor->wlr_cursor->events.motion, &cursor->cursor_motion);
@@ -31,7 +32,6 @@ void server_cursor_init(struct server_cursor* cursor) {
 	wl_signal_add(&cursor->wlr_cursor->events.frame, &cursor->cursor_frame);
 
 	wlr_log(WLR_INFO, "New cursor created");
-
 
 }
 
@@ -70,9 +70,18 @@ void server_cursor_button(struct wl_listener* listener, void* data) {
 	wlr_log(WLR_INFO, "Cursor button begin");
 
 	struct server_cursor* cursor = wl_container_of(listener, cursor, cursor_button);
-	struct wlr_pointer_button_event* event = data;
-
+	cursor->event = data;
+	struct wlr_pointer_button_event* event = cursor->event;
 	wlr_seat_pointer_notify_button(cursor->server->seat, event->time_msec, event->button, event->state);
+
+	struct wlr_keyboard *keyboard =
+		wlr_seat_get_keyboard(cursor->server->seat);
+
+	uint32_t modifiers = 0;
+	if (keyboard) {
+		modifiers = wlr_keyboard_get_modifiers(keyboard);
+	}
+
 	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		// Нажали: меняем курсор и фокусируем окно под курсором (если есть)
 		wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "hand2");
@@ -85,12 +94,18 @@ void server_cursor_button(struct wl_listener* listener, void* data) {
 		if (toplevel) {
 			focus_toplevel(toplevel);
 		}
+		if ((modifiers & WLR_MODIFIER_CTRL)) {
+			if (toplevel->mode == WINDOW_FLOATING) {
+				begin_interactive(toplevel, CURSOR_MOVE, 0);
+			}
+
+		}
 		wlr_log(WLR_INFO, "Button pressed, focused: %p", (void*)toplevel);
 	}
 	else if (event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
 		// Отпустили: вернуть обычный курсор
 		wlr_log(WLR_DEBUG, "Event state Button Released");
-		wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "left_ptr");
+		reset_cursor_mode(cursor);
 		// при необходимости: выход из режимов move/resize
 	}
 
@@ -112,6 +127,13 @@ void server_cursor_frame(struct wl_listener* listener, void* data) {
 }
 
 void process_cursor_motion(struct server_cursor* cursor, uint32_t time) {
+	if (cursor->cursor_mode == CURSOR_MOVE) {
+		process_cursor_move(cursor);
+		return;
+	}
+	if (cursor->cursor_mode == CURSOR_RESIZE) {
+		process_cursor_resize(cursor);
+	}
 	double sx, sy;
 	struct wlr_seat *seat = cursor->server->seat;
 	struct wlr_surface *surface = NULL;
@@ -133,13 +155,50 @@ void process_cursor_motion(struct server_cursor* cursor, uint32_t time) {
 
 }
 
-/*void process_cursor_move(struct server_cursor* cursor) {
-	struct client_xdg_toplevel *toplevel = cursor->grabbed_toplevel;
+void process_cursor_move(struct server_cursor* cursor) {
+	struct client_xdg_toplevel *toplevel = cursor->server->current_focus;
 	wlr_scene_node_set_position(&toplevel->scene_tree->node,
-		cursor->wlr_cursor->x - server->grab_x,
-		cursor->wlr_cursor->y - cursor->wlr_cursor->grab_y);
-}*/
+		cursor->wlr_cursor->x - cursor->grab_x,
+		cursor->wlr_cursor->y - cursor->grab_y);
+}
 
 void reset_cursor_mode(struct server_cursor* cursor) {
+	cursor->cursor_mode = CURSOR_NORMAL;
+	wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "left_ptr");
 
+}
+
+void process_cursor_resize(struct server_cursor* cursor) {
+
+}
+
+void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mode, uint32_t edges) {
+	/* This function sets up an interactive move or resize operation, where the
+	 * compositor stops propegating pointer events to clients and instead
+	 * consumes them itself, to move or resize windows. */
+	struct server *server = toplevel->server;
+	struct server_cursor* cursor = server->cursor;
+
+	server->current_focus = toplevel;
+	cursor->cursor_mode = mode;
+
+	if (mode == CURSOR_MOVE) {
+		cursor->grab_x = cursor->wlr_cursor->x - toplevel->scene_tree->node.x;
+		cursor->grab_y = cursor->wlr_cursor->y - toplevel->scene_tree->node.y;
+	} else {
+		struct wlr_box *geo_box = toplevel->box;
+
+		double border_x = (toplevel->scene_tree->node.x + geo_box->x) +
+			((edges & WLR_EDGE_RIGHT) ? geo_box->width : 0);
+		double border_y = (toplevel->scene_tree->node.y + geo_box->y) +
+			((edges & WLR_EDGE_BOTTOM) ? geo_box->height : 0);
+		cursor->grab_x = cursor->wlr_cursor->x - border_x;
+		cursor->grab_y = cursor->wlr_cursor->y - border_y;
+
+		toplevel->grab_box = geo_box;
+		toplevel->grab_box->x += toplevel->scene_tree->node.x;
+		toplevel->grab_box->y += toplevel->scene_tree->node.y;
+
+		//server->resize_edges = edges;
+	}
 }

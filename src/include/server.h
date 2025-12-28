@@ -24,6 +24,9 @@
 #include <wlr/backend/session.h>
 #include <assert.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
+#include <src/configuration/parser.h>
+#include <wlr/types/wlr_server_decoration.h>
+#include <wlr/types/wlr_xdg_decoration_v1.h>
 
 struct server {
 	struct wl_display *wl_display;
@@ -37,35 +40,39 @@ struct server {
 	struct wlr_compositor *compositor;
 
 
-	//проба окон
-
-	//client
+	/*** clients ***/
 	struct wl_list clients;
+	struct wl_list shell_layers;
+
 	struct wlr_xdg_shell *xdg_shell;
-
-	struct wl_list layers;
-	struct wlr_layer_shell_v1 *layer_shell;
-
 	struct wl_listener new_xdg_toplevel;
 	struct wl_listener new_xdg_popup;
-
-	struct wl_listener new_layer_surface;
-	//struct wl_list toplevels;
-
 	struct client_xdg_toplevel* current_focus;
+
+	struct wlr_layer_shell_v1 *layer_shell;
+	struct wl_listener new_layer_surface;
+
+
 
 
 	const char* socket;
 
-	//output
-	struct server_output *output;
-	//наши моники
+	/*** outputs ***/
 	struct wl_list outputs;
+
+	struct server_output *output;
 	struct wl_listener new_output;
 	struct wlr_output_layout *output_layout;
+
 	struct wlr_scene* scene;
 	struct wlr_scene_output_layout* scene_layout;
 
+	struct {
+		struct wlr_scene_tree* background;
+		struct wlr_scene_tree* overlay;
+		struct wlr_scene_tree* tiling;
+		struct wlr_scene_tree* floating;
+	} layers;
 
 	//inputs
 	struct wlr_seat* seat;
@@ -76,10 +83,7 @@ struct server {
 	struct wl_listener new_input;
 
 	struct server_keyboard* keyboard;
-
 	struct server_cursor *cursor;
-
-	struct node* root;
 
 };
 
