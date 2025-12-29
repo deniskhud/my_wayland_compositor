@@ -1,11 +1,11 @@
-#include "../include/input.h"
+#include "../include/input/input.h"
 
 #include <unistd.h>
 
 #include "../include/server.h"
-#include "../include/cursor.h"
+#include "../include/input/cursor.h"
 #include "../include/output.h"
-#include "../include/client.h"
+#include "../include/clients/client.h"
 void server_new_input(struct wl_listener* listener, void* data) {
 	struct server* server = wl_container_of(listener, server, new_input);
 
@@ -164,7 +164,7 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 			//check if any client exist (if not check it will crash)
 			if (wl_list_empty(&server->clients)) break;
 			// otherwise, send close to client
-			struct client_xdg_toplevel *toplevel = wl_container_of(server->clients.next, toplevel, link);
+			struct client_xdg_toplevel *toplevel = server->current_focus;
 			if (toplevel->xdg_toplevel != NULL) wlr_xdg_toplevel_send_close(toplevel->xdg_toplevel);
 		}
 			break;

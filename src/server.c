@@ -2,10 +2,10 @@
 
 #include <wlr/render/allocator.h>
 
-#include "include/input.h"
+#include "include/input/input.h"
 #include "include/output.h"
-#include "include/cursor.h"
-#include "include/client.h"
+#include "include/input/cursor.h"
+#include "include/clients/client.h"
 
 bool server_init(struct server* server) {
 	wlr_log_init(WLR_DEBUG, NULL);
@@ -121,8 +121,8 @@ bool server_start(struct server* server) {
 	server->new_xdg_popup.notify = client_new_xdg_popup;
 	wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_xdg_popup);
 
-	server->new_layer_surface.notify = client_new_layer_surface;
-	wl_signal_add(&server->layer_shell->events.new_surface, &server->new_layer_surface);
+	//server->new_layer_surface.notify = client_new_layer_surface;
+	//wl_signal_add(&server->layer_shell->events.new_surface, &server->new_layer_surface);
 
 	server->current_focus = NULL;
 
@@ -145,7 +145,7 @@ void server_destroy(struct server* server) {
 	wl_list_remove(&server->new_output.link);
 	wl_list_remove(&server->new_xdg_toplevel.link);
 	wl_list_remove(&server->new_xdg_popup.link);
-	wl_list_remove(&server->new_layer_surface.link);
+	//wl_list_remove(&server->new_layer_surface.link);
 
 	wl_list_remove(&server->keyboards);
 	//wlr_seat_destroy(server->seat);

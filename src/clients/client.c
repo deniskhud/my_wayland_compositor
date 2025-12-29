@@ -1,16 +1,17 @@
-#include "include/client.h"
+#include "../include/clients/client.h"
 
 #include <wlr/types/wlr_scene.h>
 
-#include "include/cursor.h"
-#include "include/server.h"
+#include "../include/input/cursor.h"
+#include "../include/server.h"
 
 
 #include <wlr/types/wlr_output_layout.h>
-#include "wlr-layer-shell-unstable-v1-protocol.h"
-#include "include/node.h"
-#include "include/output.h"
+#include "../../protocols/wlr-layer-shell-unstable-v1-protocol.h"
+#include "../include/tree/node.h"
+#include "../include/output.h"
 
+/*** toplevel ***/
 void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	struct server* server = wl_container_of(listener, server, new_xdg_toplevel);
 
@@ -92,84 +93,8 @@ void mxdg_toplevel_map(struct wl_listener* listener, void* data) {
 	//focus to new window
 	focus_toplevel(client_toplevel);
 
+
 }
-
-void client_new_layer_surface(struct wl_listener* listener, void* data) {
-	struct server* server = wl_container_of(listener, server, new_layer_surface);
-	wlr_log(WLR_INFO, "New layer surface, вошли в функцию ");
-
-	struct wlr_layer_surface_v1* layer_surface = data;
-	struct wlr_surface* surface = layer_surface->surface;
-
-	struct wlr_scene_tree* scene_layer = server->layers.overlay;
-
-	if (!layer_surface->output &&
-		!(layer_surface->output = server->output->wlr_output ? server->output->wlr_output
-			: NULL)) {
-		wlr_layer_surface_v1_destroy(layer_surface);
-		return;
-	}
-
-	struct client_layer* layer = calloc(1, sizeof(struct client_layer));
-
-
-
-	layer->commit.notify = client_layer_destroy;
-	wl_signal_add(&layer->layer_surface->events.destroy, &layer->commit);
-
-	layer->destroy.notify = client_layer_destroy;
-	wl_signal_add(&layer->layer_surface->events.destroy, &layer->destroy);
-
-	layer->new_popup.notify = client_new_xdg_popup; //затычка
-	wl_signal_add(&layer->layer_surface->events.new_popup, &layer->new_popup);
-
-	layer->unmap.notify = client_layer_unmap;
-	wl_signal_add(&layer->layer_surface->surface->events.unmap, &layer->unmap);
-
-	layer->layer_surface = layer_surface;
-	layer->server = server;
-	layer->output = layer_surface->output->data;
-	layer->scene = layer->scene_layer->tree;
-
-	layer->popups = surface->data = wlr_scene_tree_create(server->layers.overlay);
-
-	layer->scene->node.data = layer->popups->node.data = layer;
-
-	wl_list_insert(&server->shell_layers, &layer->link);
-	wlr_surface_send_enter(surface, layer_surface->output);
-	//wlr_layer_surface_v1_configure(layer_surface, 1920, 100);
-	wlr_log(WLR_INFO, "New layer surface created");
-}
-
-void client_layer_destroy(struct wl_listener* listener, void* data) {
-	struct client_layer* layer = wl_container_of(listener, layer, destroy);
-	//wlr_layer_surface_v1_destroy(layer->layer_surface);
-	wl_list_remove(&layer->link);
-	wl_list_remove(&layer->new_popup.link);
-	wl_list_remove(&layer->destroy.link);
-	wl_list_remove(&layer->commit.link);
-	wl_list_remove(&layer->unmap.link);
-
-	wlr_scene_node_destroy(&layer->scene->node);
-	wlr_scene_node_destroy(&layer->popups->node);
-
-	free(layer);
-}
-
-
-
-void client_layer_unmap(struct wl_listener* listener, void* data) {
-	struct client_layer* layer = wl_container_of(listener, layer, unmap);
-
-	if (layer->scene_layer) {
-		wlr_scene_node_destroy(&layer->scene_layer->tree->node);
-		layer->scene_layer = NULL;
-	}
-
-	wlr_log(WLR_INFO, "Layer unmapped");
-}
-
-
 
 void mxdg_toplevel_unmap(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
@@ -183,6 +108,8 @@ void mxdg_toplevel_commit(struct wl_listener* listener, void* data) {
 		wlr_xdg_surface_schedule_configure(client_toplevel->xdg_toplevel->base);
 	}
 	client_toplevel->box = client_get_geometry(client_toplevel);
+
+
 	//wlr_log(WLR_INFO, "current geometry is -> w : %i, h : %i, x : %i, y : %i", client_toplevel->box->width, client_toplevel->box->height, client_toplevel->box->x, client_toplevel->box->y);
 
 
@@ -222,12 +149,6 @@ void mxdg_toplevel_show_window_menu(struct wl_listener* listener, void* data) {
 
 }
 
-
-
-void client_new_xdg_popup(struct wl_listener* listener, void* data) {
-
-}
-
 void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, destroy);
@@ -258,9 +179,7 @@ void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 	free(toplevel);
 	wlr_log(WLR_INFO, "Client xdg_toplevel destroyed");
 }
-void client_xdg_popup_destroy(struct wl_listener* listener, void* data) {
 
-}
 
 void focus_toplevel(struct client_xdg_toplevel* toplevel) {
 	struct server* server = toplevel->server;
@@ -366,6 +285,86 @@ void arrange_windows(struct server* server) {
 	}
 }
 
+/*** popup ***/
+
+void client_new_xdg_popup(struct wl_listener* listener, void* data) {
+	struct server* server = wl_container_of(listener, server, new_xdg_popup);
+	wlr_log(WLR_INFO, "New xdg popup");
+	struct wlr_xdg_popup* popup = data;
+
+	struct client_xdg_popup* client = calloc(1, sizeof(struct client_xdg_popup));
+
+	client->xdg_popup = popup;
+
+	struct wlr_xdg_surface *parent = wlr_xdg_surface_try_from_wlr_surface(popup->parent);
+	if (parent == NULL) {
+		return;
+	}
+	struct wlr_scene_tree *parent_tree = parent->data;
+
+	popup->base->data = wlr_scene_xdg_surface_create(parent_tree, popup->base);
+
+	client->commit.notify = client_popup_commit;
+	wl_signal_add(&popup->base->surface->events.commit, &client->commit);
+
+	client->destroy.notify = client_xdg_popup_destroy;
+	wl_signal_add(&popup->events.destroy, &client->destroy);
+
+	client->reposition.notify = client_popup_reposition;
+	wl_signal_add(&popup->events.reposition, &client->reposition);
+
+
+}
+
+void client_xdg_popup_destroy(struct wl_listener* listener, void* data) {
+	struct client_xdg_popup* popup = wl_container_of(listener, popup, destroy);
+
+	wl_list_remove(&popup->destroy.link);
+	wl_list_remove(&popup->reposition.link);
+	wl_list_remove(&popup->commit.link);
+	free(popup);
+}
+
+void client_popup_commit(struct wl_listener *listener, void *data) {
+	struct client_xdg_popup* client = wl_container_of(listener, client, commit);
+
+	if (client->xdg_popup->base->initial_commit) {
+		wlr_xdg_surface_schedule_configure(client->xdg_popup->base);
+	}
+}
+
+void client_popup_reposition(struct wl_listener* listener, void* data) {
+	struct client_xdg_popup* popup = wl_container_of(listener, popup, reposition);
+
+	struct wlr_xdg_popup* wlr_popup = popup->xdg_popup;
+
+	// если используешь сцены wlroots:
+	if (popup->scene_tree) {
+		// перемещаем сценический узел в новые координаты
+		wlr_scene_node_set_position(
+			&popup->scene_tree->node,
+			wlr_popup->base->geometry.x,
+			wlr_popup->base->geometry.y
+		);
+	}
+
+}
+
+
+/*** windows mods functions ***/
+void client_set_tiling_mode(struct client_xdg_toplevel* toplevel) {
+	wlr_scene_node_destroy(&toplevel->scene_tree->node);
+
+	toplevel->mode = WINDOW_TILING;
+
+	toplevel->scene_tree =
+		wlr_scene_xdg_surface_create(toplevel->server->layers.tiling, toplevel->xdg_toplevel->base);
+	toplevel->scene_tree->node.data = toplevel;
+	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
+
+	arrange_windows(toplevel->server);
+}
+
 void client_set_floating_mode(struct client_xdg_toplevel* toplevel) {
 	wlr_log(WLR_INFO, "FLOATING MODE for %s", toplevel->xdg_toplevel->app_id);
 	wlr_scene_node_destroy(&toplevel->scene_tree->node);
@@ -379,19 +378,6 @@ void client_set_floating_mode(struct client_xdg_toplevel* toplevel) {
 
 	arrange_windows(toplevel->server);
 
-}
-
-void client_set_tiling_mode(struct client_xdg_toplevel* toplevel) {
-	wlr_scene_node_destroy(&toplevel->scene_tree->node);
-
-	toplevel->mode = WINDOW_TILING;
-
-	toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(toplevel->server->layers.tiling, toplevel->xdg_toplevel->base);
-	toplevel->scene_tree->node.data = toplevel;
-	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
-
-	arrange_windows(toplevel->server);
 }
 
 void client_set_holding_mode(struct client_xdg_toplevel* toplevel) {

@@ -1,7 +1,7 @@
-#include "../include/cursor.h"
+#include "../include/input/cursor.h"
 #include "../include/server.h"
-#include "../include/client.h"
-#include "src/include/input.h"
+#include "../include/clients/client.h"
+#include "../include/input/input.h"
 
 void server_new_pointer(struct server* server, struct wlr_input_device* device) {
 	wlr_cursor_attach_input_device(server->cursor->wlr_cursor, device);
@@ -10,7 +10,6 @@ void server_new_pointer(struct server* server, struct wlr_input_device* device) 
 void server_cursor_init(struct server_cursor* cursor) {
 	cursor->wlr_cursor = wlr_cursor_create();
 	wlr_cursor_attach_output_layout(cursor->wlr_cursor, cursor->server->output_layout);
-
 	cursor->cursor_manager = wlr_xcursor_manager_create(NULL, 24);
 	wlr_xcursor_manager_load(cursor->cursor_manager, 24);
 	wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "left_ptr");
