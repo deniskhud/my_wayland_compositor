@@ -44,6 +44,38 @@ void server_new_output(struct wl_listener* listener, void* data) {
 	output->scene_output = wlr_scene_output_create(server->scene, wlr_output);
 	wlr_scene_output_layout_add_output(server->scene_layout, l_output, output->scene_output);
 
+	//create layers
+	for (size_t i = 0; i < 4; ++i) {
+		output->layers_tree[i] = wlr_scene_tree_create(&server->scene->tree);
+	}
+
+
+	/*
+	 * Set the z-positions to achieve the following order (from top to
+	 * bottom):
+	 *	- session lock layer
+	 *	- window switcher osd
+	 *	- (compositor menu)
+	 *	- layer-shell popups
+	 *	- overlay layer
+	 *	- top layer
+	 *	- (views)
+	 *	- bottom layer
+	 *	- background layer
+	 */
+	/***
+		[3] - overlay
+		[2]	- top layer
+		[1]	- bottom layer
+		[0] - background
+	 ***/
+	wlr_scene_node_lower_to_bottom(&output->layers_tree[1]->node);
+	wlr_scene_node_lower_to_bottom(&output->layers_tree[0]->node);
+
+	wlr_scene_node_raise_to_top(&output->layers_tree[2]->node);
+	wlr_scene_node_raise_to_top(&output->layers_tree[3]->node);
+
+
 	wlr_log(WLR_INFO, "Created new output %s", output->wlr_output->name);
 }
 
@@ -68,6 +100,10 @@ void output_request_state(struct wl_listener* listener, void* data) {
 }
 void output_destroy(struct wl_listener* listener, void* data) {
 	struct server_output* output = wl_container_of(listener, output, destroy);
+
+	for (size_t i = 0; i < 4; ++i) {
+		wlr_scene_node_destroy(&output->layers_tree[i]->node);
+	}
 
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->request_state.link);

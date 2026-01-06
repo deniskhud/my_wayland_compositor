@@ -85,7 +85,7 @@ void mxdg_toplevel_map(struct wl_listener* listener, void* data) {
 
 	//добавление в сцену
 	client_toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(client_toplevel->server->layers.tiling, client_toplevel->xdg_toplevel->base);
+		wlr_scene_xdg_surface_create(client_toplevel->server->output->layers_tree[1], client_toplevel->xdg_toplevel->base);
 	client_toplevel->scene_tree->node.data = client_toplevel;
 	client_toplevel->xdg_toplevel->base->data = client_toplevel->scene_tree;
 
@@ -97,8 +97,23 @@ void mxdg_toplevel_map(struct wl_listener* listener, void* data) {
 }
 
 void mxdg_toplevel_unmap(struct wl_listener* listener, void* data) {
-	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
+	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, unmap);
 
+	struct server* server = toplevel->server;
+
+	if (server->current_focus == toplevel) {
+		struct client_xdg_toplevel* next;
+
+		wl_list_for_each(next, &server->clients, link) {
+			if (next != toplevel && next->scene_tree) {
+				focus_toplevel(next);
+				return;
+			}
+		}
+		// если вообще никого нет
+		wlr_seat_keyboard_clear_focus(server->seat);
+		server->current_focus = NULL;
+	}
 
 }
 void mxdg_toplevel_commit(struct wl_listener* listener, void* data) {
@@ -153,7 +168,6 @@ void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, destroy);
 
-
 	if (toplevel->scene_tree) {
 		wlr_scene_node_destroy(&toplevel->scene_tree->node);
 	}
@@ -173,7 +187,6 @@ void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 	wl_list_remove(&toplevel->set_parent.link);
 	wl_list_remove(&toplevel->set_title.link);
 	wl_list_remove(&toplevel->show_window_menu.link);
-
 
 	arrange_windows(toplevel->server);
 	free(toplevel);
@@ -199,6 +212,7 @@ void focus_toplevel(struct client_xdg_toplevel* toplevel) {
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat);
 	/* Move the toplevel to the front */
 	wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+
 	wl_list_remove(&toplevel->link);
 	wl_list_insert(&server->clients, &toplevel->link);
 	/* Activate the new surface */
@@ -358,7 +372,7 @@ void client_set_tiling_mode(struct client_xdg_toplevel* toplevel) {
 	toplevel->mode = WINDOW_TILING;
 
 	toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(toplevel->server->layers.tiling, toplevel->xdg_toplevel->base);
+		wlr_scene_xdg_surface_create(toplevel->server->output->layers_tree[1], toplevel->xdg_toplevel->base);
 	toplevel->scene_tree->node.data = toplevel;
 	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
 
@@ -372,7 +386,7 @@ void client_set_floating_mode(struct client_xdg_toplevel* toplevel) {
 	toplevel->mode = WINDOW_FLOATING;
 
 	toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(toplevel->server->layers.floating, toplevel->xdg_toplevel->base);
+		wlr_scene_xdg_surface_create(toplevel->server->output->layers_tree[2], toplevel->xdg_toplevel->base);
 	toplevel->scene_tree->node.data = toplevel;
 	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
 
@@ -386,7 +400,7 @@ void client_set_holding_mode(struct client_xdg_toplevel* toplevel) {
 	toplevel->mode = WINDOW_HOLDING;
 
 	toplevel->scene_tree =
-		wlr_scene_xdg_surface_create(toplevel->server->layers.overlay, toplevel->xdg_toplevel->base);
+		wlr_scene_xdg_surface_create(toplevel->server->output->layers_tree[3], toplevel->xdg_toplevel->base);
 	toplevel->scene_tree->node.data = toplevel;
 	toplevel->xdg_toplevel->base->data = toplevel->scene_tree;
 	arrange_windows(toplevel->server);

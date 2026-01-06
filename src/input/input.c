@@ -114,7 +114,10 @@ void keyboard_handle_key(struct wl_listener* listener, void* data) {
 	if ((modifiers & WLR_MODIFIER_CTRL) && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 		struct wlr_pointer_button_event* e = server->cursor->event;
 		if (e->state == WL_POINTER_BUTTON_STATE_PRESSED) {
-			client_set_holding_mode(server->current_focus);
+			if (server->current_focus->mode == WINDOW_TILING) {
+				client_set_holding_mode(server->current_focus);
+			}
+
 		}
 	}
 	if ((modifiers & WLR_MODIFIER_ALT) &&
@@ -151,21 +154,17 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 			wl_display_terminate(server->wl_display);
 
 			break;
-		case XKB_KEY_F1:
 
-			if (wl_list_length(&server->clients) < 2) {
-				break;
-			}
-			struct client_xdg_toplevel *next_toplevel =
-				wl_container_of(server->clients.prev, next_toplevel, link);
-			focus_toplevel(next_toplevel);
-			break;
 		case XKB_KEY_q: {
 			//check if any client exist (if not check it will crash)
-			if (wl_list_empty(&server->clients)) break;
+			if (wl_list_empty(&server->clients)) {
+				server->current_focus = NULL;
+				break;
+			}
 			// otherwise, send close to client
 			struct client_xdg_toplevel *toplevel = server->current_focus;
-			if (toplevel->xdg_toplevel != NULL) wlr_xdg_toplevel_send_close(toplevel->xdg_toplevel);
+			if (server->current_focus != NULL) wlr_xdg_toplevel_send_close(toplevel->xdg_toplevel);
+
 		}
 			break;
 

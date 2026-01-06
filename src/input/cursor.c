@@ -182,6 +182,7 @@ void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mo
 	cursor->cursor_mode = mode;
 
 	if (mode == CURSOR_MOVE) {
+		wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "grabbing");
 		cursor->grab_x = cursor->wlr_cursor->x - toplevel->scene_tree->node.x;
 		cursor->grab_y = cursor->wlr_cursor->y - toplevel->scene_tree->node.y;
 	} else {

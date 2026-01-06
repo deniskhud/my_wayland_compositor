@@ -67,12 +67,6 @@ struct server {
 	struct wlr_scene* scene;
 	struct wlr_scene_output_layout* scene_layout;
 
-	struct {
-		struct wlr_scene_tree* background;
-		struct wlr_scene_tree* overlay;
-		struct wlr_scene_tree* tiling;
-		struct wlr_scene_tree* floating;
-	} layers;
 
 	//inputs
 	struct wlr_seat* seat;

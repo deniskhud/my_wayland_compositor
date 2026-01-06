@@ -60,10 +60,6 @@ bool server_init(struct server* server) {
 
 
 	//trees
-	server->layers.background = wlr_scene_tree_create(&server->scene->tree);
-	server->layers.tiling = wlr_scene_tree_create(&server->scene->tree);
-	server->layers.floating = wlr_scene_tree_create(&server->scene->tree);
-	server->layers.overlay = wlr_scene_tree_create(&server->scene->tree);
 
 	wl_list_init(&server->clients);
 	wl_list_init(&server->shell_layers);
@@ -77,8 +73,6 @@ bool server_init(struct server* server) {
 	else {
 		wlr_log(WLR_INFO, "Created wlr_layer_shell");
 	}
-
-
 
 	//input
 	wl_list_init(&server->keyboards);

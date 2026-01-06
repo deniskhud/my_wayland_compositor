@@ -14,6 +14,7 @@ struct server_output {
 	struct wl_listener request_state;
 	struct wl_listener destroy;
 
+	struct wlr_scene_tree* layers_tree[4];
 	struct wlr_scene_output* scene_output;
 
 };
