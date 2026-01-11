@@ -19,3 +19,7 @@ A wayland compositor (tiling in future) written in C using wlroots library. I Bu
 
 # Keybindings
 (in future) 
+
+https://github.com/user-attachments/assets/c9729a19-8695-4ac0-b8b7-c6201a716353
+
+
