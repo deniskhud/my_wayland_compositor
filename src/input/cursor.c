@@ -94,8 +94,39 @@ void server_cursor_button(struct wl_listener* listener, void* data) {
 			focus_toplevel(toplevel);
 		}
 		if ((modifiers & WLR_MODIFIER_CTRL)) {
-			if (toplevel->mode == WINDOW_FLOATING) {
+			if (toplevel->mode == WINDOW_FLOATING && event->button == 0x110) {
 				begin_interactive(toplevel, CURSOR_MOVE, 0);
+			}
+			//button right
+			else if (event->button == 0x111) {
+				struct wlr_box box = {
+					.x = toplevel->scene_tree->node.x,
+					.y = toplevel->scene_tree->node.y,
+					.width  = toplevel->xdg_toplevel->current.width,
+					.height = toplevel->xdg_toplevel->current.height,
+				};
+				double cx = cursor->wlr_cursor->x;
+				double cy = cursor->wlr_cursor->y;
+
+				double left = fabs(cx - box.x);
+				double right  = fabs((box.x + box.width)  - cx);
+				double top    = fabs(cy - box.y);
+				double bottom = fabs((box.y + box.height) - cy);
+
+				uint32_t edges = 0;
+
+				if (left < right)
+					edges |= WLR_EDGE_LEFT;
+				else
+					edges |= WLR_EDGE_RIGHT;
+
+				if (top < bottom)
+					edges |= WLR_EDGE_TOP;
+				else
+					edges |= WLR_EDGE_BOTTOM;
+
+				begin_interactive(toplevel, CURSOR_RESIZE, edges);
+
 			}
 
 		}
@@ -167,10 +198,6 @@ void reset_cursor_mode(struct server_cursor* cursor) {
 
 }
 
-void process_cursor_resize(struct server_cursor* cursor) {
-
-}
-
 void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mode, uint32_t edges) {
 	/* This function sets up an interactive move or resize operation, where the
 	 * compositor stops propegating pointer events to clients and instead
@@ -185,20 +212,83 @@ void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mo
 		wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "grabbing");
 		cursor->grab_x = cursor->wlr_cursor->x - toplevel->scene_tree->node.x;
 		cursor->grab_y = cursor->wlr_cursor->y - toplevel->scene_tree->node.y;
-	} else {
-		struct wlr_box *geo_box = toplevel->box;
+	} else if (mode == CURSOR_RESIZE){
+		struct wlr_box geo_box = toplevel->xdg_toplevel->base->geometry;
 
-		double border_x = (toplevel->scene_tree->node.x + geo_box->x) +
-			((edges & WLR_EDGE_RIGHT) ? geo_box->width : 0);
-		double border_y = (toplevel->scene_tree->node.y + geo_box->y) +
-			((edges & WLR_EDGE_BOTTOM) ? geo_box->height : 0);
+		double border_x = (toplevel->scene_tree->node.x + geo_box.x) +
+			((edges & WLR_EDGE_RIGHT) ? geo_box.width : 0);
+		double border_y = (toplevel->scene_tree->node.y + geo_box.y) +
+			((edges & WLR_EDGE_BOTTOM) ? geo_box.height : 0);
 		cursor->grab_x = cursor->wlr_cursor->x - border_x;
 		cursor->grab_y = cursor->wlr_cursor->y - border_y;
 
 		toplevel->grab_box = geo_box;
-		toplevel->grab_box->x += toplevel->scene_tree->node.x;
-		toplevel->grab_box->y += toplevel->scene_tree->node.y;
+		toplevel->grab_box.x += toplevel->scene_tree->node.x;
+		toplevel->grab_box.y += toplevel->scene_tree->node.y;
 
-		//server->resize_edges = edges;
+		toplevel->resize_edges = edges;
 	}
+}
+
+void process_cursor_resize(struct server_cursor* cursor) {
+	struct server* server = cursor->server;
+	struct client_xdg_toplevel *toplevel = server->current_focus;
+
+	double border_x = server->cursor->wlr_cursor->x - server->cursor->grab_x;
+	double border_y = server->cursor->wlr_cursor->y - server->cursor->grab_y;
+	int new_left = toplevel->grab_box.x;
+	int new_right = toplevel->grab_box.x + toplevel->grab_box.width;
+	int new_top = toplevel->grab_box.y;
+	int new_bottom = toplevel->grab_box.y + toplevel->grab_box.height;
+
+	if (toplevel->resize_edges & WLR_EDGE_TOP) {
+		new_top = border_y;
+		if (new_top >= new_bottom) {
+			new_top = new_bottom - 1;
+		}
+	} else if (toplevel->resize_edges & WLR_EDGE_BOTTOM) {
+		new_bottom = border_y;
+		if (new_bottom <= new_top) {
+			new_bottom = new_top + 1;
+		}
+	}
+	if (toplevel->resize_edges & WLR_EDGE_LEFT) {
+		new_left = border_x;
+		if (new_left >= new_right) {
+			new_left = new_right - 1;
+		}
+	} else if (toplevel->resize_edges & WLR_EDGE_RIGHT) {
+		new_right = border_x;
+		if (new_right <= new_left) {
+			new_right = new_left + 1;
+		}
+	}
+
+	struct wlr_box *geo_box = &toplevel->xdg_toplevel->base->geometry;
+	//wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, new_left - geo_box->x, new_top - geo_box->y);
+	wlr_scene_node_set_position(&toplevel->scene_tree->node,
+	                            new_left - geo_box->x, new_top - geo_box->y);
+
+	int new_width = new_right - new_left;
+	int new_height = new_bottom - new_top;
+	wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, new_width, new_height);
+}
+
+uint32_t cursor_edges_for_toplevel(struct client_xdg_toplevel *toplevel,
+                                   struct server_cursor *cursor) {
+	const int margin = 10;
+
+	struct wlr_box *box = toplevel->box;
+
+	double cx = cursor->wlr_cursor->x - toplevel->scene_tree->node.x;
+	double cy = cursor->wlr_cursor->y - toplevel->scene_tree->node.y;
+
+	uint32_t edges = 0;
+
+	if (cx < margin) edges |= WLR_EDGE_LEFT;
+	if (cx > box->width - margin) edges |= WLR_EDGE_RIGHT;
+	if (cy < margin) edges |= WLR_EDGE_TOP;
+	if (cy > box->height - margin) edges |= WLR_EDGE_BOTTOM;
+
+	return edges;
 }

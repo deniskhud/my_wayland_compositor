@@ -23,7 +23,8 @@ struct client_xdg_toplevel {
 
 	//window size / coords
 	struct wlr_box* box;
-	struct wlr_box* grab_box;
+	struct wlr_box grab_box;
+	uint32_t resize_edges;
 
 	struct wl_listener request_move;
 	struct wl_listener request_resize;
@@ -53,19 +54,19 @@ void client_popup_commit(struct wl_listener *listener, void *data);
 void client_new_xdg_toplevel(struct wl_listener* listener, void* data);
 void client_new_xdg_popup(struct wl_listener* listener, void* data);
 
-void mxdg_toplevel_map(struct wl_listener* listener, void* data);
-void mxdg_toplevel_unmap(struct wl_listener* listener, void* data);
-void mxdg_toplevel_commit(struct wl_listener* listener, void* data);
-void mxdg_toplevel_request_move(struct wl_listener* listener, void* data);
-void mxdg_toplevel_request_resize(struct wl_listener* listener, void* data);
-void mxdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data);
-void mxdg_toplevel_request_maximize(struct wl_listener* listener, void* data);
+void handle_toplevel_map(struct wl_listener* listener, void* data);
+void handle_toplevel_unmap(struct wl_listener* listener, void* data);
+void handle_toplevel_commit(struct wl_listener* listener, void* data);
+void handle_toplevel_request_move(struct wl_listener* listener, void* data);
+void handle_toplevel_request_resize(struct wl_listener* listener, void* data);
+void handle_toplevel_request_fullscreen(struct wl_listener* listener, void* data);
+void handle_toplevel_request_maximize(struct wl_listener* listener, void* data);
 
-void mxdg_toplevel_request_minimize(struct wl_listener* listener, void* data);
-void mxdg_toplevel_set_app_id(struct wl_listener* listener, void* data);
-void mxdg_toplevel_set_title(struct wl_listener* listener, void* data);
-void mxdg_toplevel_set_parent(struct wl_listener* listener, void* data);
-void mxdg_toplevel_show_window_menu(struct wl_listener* listener, void* data);
+void handle_toplevel_request_minimize(struct wl_listener* listener, void* data);
+void handle_toplevel_set_app_id(struct wl_listener* listener, void* data);
+void handle_toplevel_set_title(struct wl_listener* listener, void* data);
+void handle_toplevel_set_parent(struct wl_listener* listener, void* data);
+void handle_toplevel_show_window_menu(struct wl_listener* listener, void* data);
 
 
 void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data);

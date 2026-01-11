@@ -3,7 +3,7 @@
 
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_keyboard.h>
-
+#include <linux/input-event-codes.h>
 struct client_xdg_toplevel;
 
 enum cursor_mode {
@@ -62,4 +62,8 @@ void process_cursor_resize(struct server_cursor* cursor);
 void reset_cursor_mode(struct server_cursor* cursor);
 
 void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mode, uint32_t edges);
+
+uint32_t cursor_edges_for_toplevel(struct client_xdg_toplevel *toplevel,
+								   struct server_cursor *cursor);
+
 #endif //CURSOR_H

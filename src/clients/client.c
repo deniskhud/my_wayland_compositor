@@ -28,54 +28,54 @@ void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
 	client_toplevel->mode = WINDOW_TILING;
 
 	/* Listen to the various events it can emit */
-	client_toplevel->map.notify = mxdg_toplevel_map;
+	client_toplevel->map.notify = handle_toplevel_map;
 	wl_signal_add(&xdg_toplevel->base->surface->events.map, &client_toplevel->map);
 
-	client_toplevel->unmap.notify = mxdg_toplevel_unmap;
+	client_toplevel->unmap.notify = handle_toplevel_unmap;
 	wl_signal_add(&xdg_toplevel->base->surface->events.unmap, &client_toplevel->unmap);
 
-	client_toplevel->commit.notify = mxdg_toplevel_commit;
+	client_toplevel->commit.notify = handle_toplevel_commit;
 	wl_signal_add(&xdg_toplevel->base->surface->events.commit, &client_toplevel->commit);
 
 	client_toplevel->destroy.notify = client_xdg_toplevel_destroy;
 	wl_signal_add(&xdg_toplevel->events.destroy, &client_toplevel->destroy);
 
-	client_toplevel->request_move.notify = mxdg_toplevel_request_move;
+	client_toplevel->request_move.notify = handle_toplevel_request_move;
 	wl_signal_add(&xdg_toplevel->events.request_move, &client_toplevel->request_move);
 
-	client_toplevel->request_resize.notify = mxdg_toplevel_request_resize;
+	client_toplevel->request_resize.notify = handle_toplevel_request_resize;
 	wl_signal_add(&xdg_toplevel->events.request_resize, &client_toplevel->request_resize);
 
-	client_toplevel->request_maximize.notify = mxdg_toplevel_request_maximize;
+	client_toplevel->request_maximize.notify = handle_toplevel_request_maximize;
 	wl_signal_add(&xdg_toplevel->events.request_maximize, &client_toplevel->request_maximize);
 
-	client_toplevel->request_fullscreen.notify = mxdg_toplevel_request_fullscreen;
+	client_toplevel->request_fullscreen.notify = handle_toplevel_request_fullscreen;
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &client_toplevel->request_fullscreen);
 
 	//
-	client_toplevel->request_minimize.notify = mxdg_toplevel_request_minimize;
+	client_toplevel->request_minimize.notify = handle_toplevel_request_minimize;
 	wl_signal_add(&xdg_toplevel->events.request_minimize, &client_toplevel->request_minimize);
 
 	//
-	client_toplevel->set_title.notify = mxdg_toplevel_set_title;
+	client_toplevel->set_title.notify = handle_toplevel_set_title;
 	wl_signal_add(&xdg_toplevel->events.set_title, &client_toplevel->set_title);
 
 	//
-	client_toplevel->show_window_menu.notify = mxdg_toplevel_show_window_menu;
+	client_toplevel->show_window_menu.notify = handle_toplevel_show_window_menu;
 	wl_signal_add(&xdg_toplevel->events.request_show_window_menu, &client_toplevel->show_window_menu);
 
 	//
-	client_toplevel->set_app_id.notify = mxdg_toplevel_set_app_id;
+	client_toplevel->set_app_id.notify = handle_toplevel_set_app_id;
 	wl_signal_add(&xdg_toplevel->events.set_app_id, &client_toplevel->set_app_id);
 
-	client_toplevel->set_parent.notify = mxdg_toplevel_set_parent;
+	client_toplevel->set_parent.notify = handle_toplevel_set_parent;
 	wl_signal_add(&xdg_toplevel->events.set_parent, &client_toplevel->set_parent);
 
 	wl_list_insert(&client_toplevel->server->clients, &client_toplevel->link);
 
 }
 
-void mxdg_toplevel_map(struct wl_listener* listener, void* data) {
+void handle_toplevel_map(struct wl_listener* listener, void* data) {
 	//wlr_log(WLR_INFO, "MAPPED %p", listener);
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, map);
 
@@ -96,7 +96,7 @@ void mxdg_toplevel_map(struct wl_listener* listener, void* data) {
 
 }
 
-void mxdg_toplevel_unmap(struct wl_listener* listener, void* data) {
+void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, unmap);
 
 	struct server* server = toplevel->server;
@@ -116,7 +116,7 @@ void mxdg_toplevel_unmap(struct wl_listener* listener, void* data) {
 	}
 
 }
-void mxdg_toplevel_commit(struct wl_listener* listener, void* data) {
+void handle_toplevel_commit(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* client_toplevel = wl_container_of(listener, client_toplevel, commit);
 
 	if (client_toplevel->xdg_toplevel->base->initial_commit) {
@@ -129,38 +129,39 @@ void mxdg_toplevel_commit(struct wl_listener* listener, void* data) {
 
 
 }
-void mxdg_toplevel_request_move(struct wl_listener* listener, void* data) {
+void handle_toplevel_request_move(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_move);
 	//begin_interactive(toplevel, CURSOR_MOVE, 0);
 }
-void mxdg_toplevel_request_resize(struct wl_listener* listener, void* data) {
+void handle_toplevel_request_resize(struct wl_listener* listener, void* data) {
+
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_resize);
-	//begin_interactive(toplevel, CURSOR_RESIZE, 0);
+
 }
-void mxdg_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
+void handle_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_fullscreen);
 	wlr_xdg_toplevel_set_fullscreen(toplevel->xdg_toplevel, true);
 }
 
-void mxdg_toplevel_request_maximize(struct wl_listener* listener, void* data) {
+void handle_toplevel_request_maximize(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, request_maximize);
 	//wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
 	//wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
 }
 
-void mxdg_toplevel_request_minimize(struct wl_listener* listener, void* data) {
+void handle_toplevel_request_minimize(struct wl_listener* listener, void* data) {
 
 }
-void mxdg_toplevel_set_app_id(struct wl_listener* listener, void* data) {
+void handle_toplevel_set_app_id(struct wl_listener* listener, void* data) {
 
 }
-void mxdg_toplevel_set_title(struct wl_listener* listener, void* data) {
+void handle_toplevel_set_title(struct wl_listener* listener, void* data) {
 
 }
-void mxdg_toplevel_set_parent(struct wl_listener* listener, void* data) {
+void handle_toplevel_set_parent(struct wl_listener* listener, void* data) {
 
 }
-void mxdg_toplevel_show_window_menu(struct wl_listener* listener, void* data) {
+void handle_toplevel_show_window_menu(struct wl_listener* listener, void* data) {
 
 }
 

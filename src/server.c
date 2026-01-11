@@ -6,7 +6,7 @@
 #include "include/output.h"
 #include "include/input/cursor.h"
 #include "include/clients/client.h"
-
+#include "include/clients/layers.h"
 bool server_init(struct server* server) {
 	wlr_log_init(WLR_DEBUG, NULL);
 	//creating a wayland display
@@ -65,7 +65,17 @@ bool server_init(struct server* server) {
 	wl_list_init(&server->shell_layers);
 
 	server->xdg_shell = wlr_xdg_shell_create(server->wl_display, 3);
-	server->layer_shell = wlr_layer_shell_v1_create(server->wl_display, 1);
+
+	server->new_xdg_toplevel.notify = client_new_xdg_toplevel;
+	wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_xdg_toplevel);
+	server->new_xdg_popup.notify = client_new_xdg_popup;
+	wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_xdg_popup);
+
+	server->layer_shell = wlr_layer_shell_v1_create(server->wl_display, 4);
+
+	server->new_layer_surface.notify = handle_new_layer_surface;
+	wl_signal_add(&server->layer_shell->events.new_surface,
+		&server->new_layer_surface);
 
 	if (!server->layer_shell) {
 		wlr_log(WLR_ERROR, "Failed to create wlr_layer_shell");
@@ -104,22 +114,14 @@ bool server_start(struct server* server) {
 	wlr_log(WLR_INFO, "Starting backend on wayland display '%s'",
 			server->socket);
 
-	if (!wlr_backend_start(server->backend)) {
-		wlr_log(WLR_ERROR, "Failed to start backend");
-		wlr_backend_destroy(server->backend);
-		return false;
-	}
 
-	server->new_xdg_toplevel.notify = client_new_xdg_toplevel;
-	wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_xdg_toplevel);
-	server->new_xdg_popup.notify = client_new_xdg_popup;
-	wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_xdg_popup);
-
-	//server->new_layer_surface.notify = client_new_layer_surface;
-	//wl_signal_add(&server->layer_shell->events.new_surface, &server->new_layer_surface);
 
 	server->current_focus = NULL;
-
+	if (!wlr_backend_start(server->backend)) {
+			wlr_log(WLR_ERROR, "Failed to start backend");
+			wlr_backend_destroy(server->backend);
+			return false;
+	}
 	return true;
 
 }
@@ -139,7 +141,7 @@ void server_destroy(struct server* server) {
 	wl_list_remove(&server->new_output.link);
 	wl_list_remove(&server->new_xdg_toplevel.link);
 	wl_list_remove(&server->new_xdg_popup.link);
-	//wl_list_remove(&server->new_layer_surface.link);
+	wl_list_remove(&server->new_layer_surface.link);
 
 	wl_list_remove(&server->keyboards);
 	//wlr_seat_destroy(server->seat);

@@ -172,7 +172,7 @@ static bool handle_keybinding(struct server *server, xkb_keysym_t sym) {
 		case XKB_KEY_w:
 			run_window("firefox");
 		case XKB_KEY_e:
-				run_window("nautilus");
+				run_window("dolphin");
 			break;
 		case XKB_KEY_f:
 			run_window("foot");
