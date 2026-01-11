@@ -227,6 +227,23 @@ void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mo
 		toplevel->grab_box.y += toplevel->scene_tree->node.y;
 
 		toplevel->resize_edges = edges;
+
+		if ((edges & WLR_EDGE_TOP) && (edges & WLR_EDGE_LEFT))
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "top_left_corner");
+		else if ((edges & WLR_EDGE_TOP) && (edges & WLR_EDGE_RIGHT))
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "top_right_corner");
+		else if ((edges & WLR_EDGE_BOTTOM) && (edges & WLR_EDGE_LEFT))
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "bottom_left_corner");
+		else if ((edges & WLR_EDGE_BOTTOM) && (edges & WLR_EDGE_RIGHT))
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "bottom_right_corner");
+		else if (edges & WLR_EDGE_TOP)
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "top_side");
+		else if (edges & WLR_EDGE_BOTTOM)
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "bottom_side");
+		else if (edges & WLR_EDGE_LEFT)
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "left_side");
+		else if (edges & WLR_EDGE_RIGHT)
+			wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "right_side");
 	}
 }
 
