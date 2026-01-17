@@ -10,6 +10,7 @@
 #include "../../protocols/wlr-layer-shell-unstable-v1-protocol.h"
 #include "../include/tree/node.h"
 #include "../include/output.h"
+#include "src/include/seat.h"
 
 /*** toplevel ***/
 void client_new_xdg_toplevel(struct wl_listener* listener, void* data) {
@@ -100,8 +101,8 @@ void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
 	struct client_xdg_toplevel* toplevel = wl_container_of(listener, toplevel, unmap);
 
 	struct server* server = toplevel->server;
-
-	if (server->current_focus == toplevel) {
+	struct seat* seat = server->seat;
+	if (seat->current_focus == toplevel) {
 		struct client_xdg_toplevel* next;
 
 		wl_list_for_each(next, &server->clients, link) {
@@ -111,8 +112,8 @@ void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
 			}
 		}
 		// если вообще никого нет
-		wlr_seat_keyboard_clear_focus(server->seat);
-		server->current_focus = NULL;
+		wlr_seat_keyboard_clear_focus(server->seat->wlr_seat);
+		seat->current_focus = NULL;
 	}
 
 }
@@ -197,7 +198,7 @@ void client_xdg_toplevel_destroy(struct wl_listener* listener, void* data) {
 
 void focus_toplevel(struct client_xdg_toplevel* toplevel) {
 	struct server* server = toplevel->server;
-	struct wlr_seat* seat = server->seat;
+	struct wlr_seat* seat = server->seat->wlr_seat;
 	struct wlr_surface* surface = toplevel->xdg_toplevel->base->surface;
 	struct wlr_surface* prev = seat->keyboard_state.focused_surface;
 	if (prev == surface) return;
@@ -224,9 +225,9 @@ void focus_toplevel(struct client_xdg_toplevel* toplevel) {
 			keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
 	}
 
-	server->current_focus = toplevel;
+	server->seat->current_focus = toplevel;
 
-	wlr_log(WLR_INFO, "Current focused toplevel is %s", server->current_focus->xdg_toplevel->app_id);
+	wlr_log(WLR_INFO, "Current focused toplevel is %s", server->seat->current_focus->xdg_toplevel->app_id);
 }
 
 struct client_xdg_toplevel *desktop_toplevel_at(

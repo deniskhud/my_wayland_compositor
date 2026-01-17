@@ -2,12 +2,13 @@
 #include "../include/server.h"
 #include "../include/clients/client.h"
 #include "../include/input/input.h"
+#include "src/include/seat.h"
 
 void server_new_pointer(struct server* server, struct wlr_input_device* device) {
-	wlr_cursor_attach_input_device(server->cursor->wlr_cursor, device);
+	wlr_cursor_attach_input_device(server->seat->cursor->wlr_cursor, device);
 }
 
-void server_cursor_init(struct server_cursor* cursor) {
+/*void server_cursor_init(struct server_cursor* cursor) {
 	cursor->wlr_cursor = wlr_cursor_create();
 	wlr_cursor_attach_output_layout(cursor->wlr_cursor, cursor->server->output_layout);
 	cursor->cursor_manager = wlr_xcursor_manager_create(NULL, 24);
@@ -32,6 +33,38 @@ void server_cursor_init(struct server_cursor* cursor) {
 
 	wlr_log(WLR_INFO, "New cursor created");
 
+}*/
+struct server_cursor* server_cursor_init(struct server* server) {
+
+	struct server_cursor* cursor = calloc(1, sizeof(struct server_cursor));
+	cursor->server = server;
+	cursor->seat = server->seat;
+
+	cursor->wlr_cursor = wlr_cursor_create();
+	wlr_cursor_attach_output_layout(cursor->wlr_cursor, server->output_layout);
+	cursor->cursor_manager = wlr_xcursor_manager_create(NULL, 24);
+	wlr_xcursor_manager_load(cursor->cursor_manager, 24);
+	wlr_cursor_set_xcursor(cursor->wlr_cursor, cursor->cursor_manager, "left_ptr");
+	cursor->cursor_mode = CURSOR_NORMAL;
+
+	cursor->cursor_motion.notify = server_cursor_motion;
+	wl_signal_add(&cursor->wlr_cursor->events.motion, &cursor->cursor_motion);
+
+	cursor->cursor_motion_absolute.notify = server_cursor_motion_absolute;
+	wl_signal_add(&cursor->wlr_cursor->events.motion_absolute, &cursor->cursor_motion_absolute);
+
+	cursor->cursor_button.notify = server_cursor_button;
+	wl_signal_add(&cursor->wlr_cursor->events.button, &cursor->cursor_button);
+
+	cursor->cursor_axis.notify = server_cursor_axis;
+	wl_signal_add(&cursor->wlr_cursor->events.axis, &cursor->cursor_axis);
+
+	cursor->cursor_frame.notify = server_cursor_frame;
+	wl_signal_add(&cursor->wlr_cursor->events.frame, &cursor->cursor_frame);
+
+	wlr_log(WLR_INFO, "New cursor created");
+
+	return cursor;
 }
 
 void server_cursor_destroy(struct server_cursor* cursor) {
@@ -71,10 +104,10 @@ void server_cursor_button(struct wl_listener* listener, void* data) {
 	struct server_cursor* cursor = wl_container_of(listener, cursor, cursor_button);
 	cursor->event = data;
 	struct wlr_pointer_button_event* event = cursor->event;
-	wlr_seat_pointer_notify_button(cursor->server->seat, event->time_msec, event->button, event->state);
+	wlr_seat_pointer_notify_button(cursor->server->seat->wlr_seat, event->time_msec, event->button, event->state);
 
 	struct wlr_keyboard *keyboard =
-		wlr_seat_get_keyboard(cursor->server->seat);
+		wlr_seat_get_keyboard(cursor->server->seat->wlr_seat);
 
 	uint32_t modifiers = 0;
 	if (keyboard) {
@@ -146,14 +179,14 @@ void server_cursor_button(struct wl_listener* listener, void* data) {
 void server_cursor_axis(struct wl_listener* listener, void* data) {
 	struct server_cursor* cursor = wl_container_of(listener, cursor, cursor_axis);
 	struct wlr_pointer_axis_event* event = data;
-	wlr_seat_pointer_notify_axis(cursor->server->seat, event->time_msec, event->orientation,
+	wlr_seat_pointer_notify_axis(cursor->server->seat->wlr_seat, event->time_msec, event->orientation,
 		event->delta, event->delta_discrete, event->source, event->relative_direction);
 
 }
 
 void server_cursor_frame(struct wl_listener* listener, void* data) {
 	struct server_cursor* cursor = wl_container_of(listener, cursor, cursor_frame);
-	wlr_seat_pointer_notify_frame(cursor->server->seat);
+	wlr_seat_pointer_notify_frame(cursor->server->seat->wlr_seat);
 }
 
 void process_cursor_motion(struct server_cursor* cursor, uint32_t time) {
@@ -165,7 +198,7 @@ void process_cursor_motion(struct server_cursor* cursor, uint32_t time) {
 		process_cursor_resize(cursor);
 	}
 	double sx, sy;
-	struct wlr_seat *seat = cursor->server->seat;
+	struct wlr_seat *seat = cursor->server->seat->wlr_seat;
 	struct wlr_surface *surface = NULL;
 	struct client_xdg_toplevel *toplevel = desktop_toplevel_at(cursor->server,
 				cursor->wlr_cursor->x, cursor->wlr_cursor->y, &surface, &sx, &sy);
@@ -186,7 +219,7 @@ void process_cursor_motion(struct server_cursor* cursor, uint32_t time) {
 }
 
 void process_cursor_move(struct server_cursor* cursor) {
-	struct client_xdg_toplevel *toplevel = cursor->server->current_focus;
+	struct client_xdg_toplevel *toplevel = cursor->seat->current_focus;
 	wlr_scene_node_set_position(&toplevel->scene_tree->node,
 		cursor->wlr_cursor->x - cursor->grab_x,
 		cursor->wlr_cursor->y - cursor->grab_y);
@@ -203,9 +236,10 @@ void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mo
 	 * compositor stops propegating pointer events to clients and instead
 	 * consumes them itself, to move or resize windows. */
 	struct server *server = toplevel->server;
-	struct server_cursor* cursor = server->cursor;
+	struct seat* seat = server->seat;
+	struct server_cursor* cursor = seat->cursor;
 
-	server->current_focus = toplevel;
+	seat->current_focus = toplevel;
 	cursor->cursor_mode = mode;
 
 	if (mode == CURSOR_MOVE) {
@@ -249,10 +283,11 @@ void begin_interactive(struct client_xdg_toplevel *toplevel, enum cursor_mode mo
 
 void process_cursor_resize(struct server_cursor* cursor) {
 	struct server* server = cursor->server;
-	struct client_xdg_toplevel *toplevel = server->current_focus;
+	struct seat* seat = server->seat;
+	struct client_xdg_toplevel *toplevel = seat->current_focus;
 
-	double border_x = server->cursor->wlr_cursor->x - server->cursor->grab_x;
-	double border_y = server->cursor->wlr_cursor->y - server->cursor->grab_y;
+	double border_x = server->seat->cursor->wlr_cursor->x - server->seat->cursor->grab_x;
+	double border_y = server->seat->cursor->wlr_cursor->y - server->seat->cursor->grab_y;
 	int new_left = toplevel->grab_box.x;
 	int new_right = toplevel->grab_box.x + toplevel->grab_box.width;
 	int new_top = toplevel->grab_box.y;

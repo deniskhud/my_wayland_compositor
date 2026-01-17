@@ -17,6 +17,7 @@ extern struct server* server;
 
 struct server_cursor {
 	struct server* server;
+	struct seat* seat;
 
 	struct wlr_cursor *wlr_cursor;
 	struct wlr_xcursor_manager* cursor_manager;
@@ -38,8 +39,8 @@ struct server_cursor {
 void server_new_pointer(struct server* server, struct wlr_input_device* device);
 
 
-
-void server_cursor_init(struct server_cursor* cursor);
+struct server_cursor* server_cursor_init(struct server* server);
+/*void server_cursor_init(struct server_cursor* cursor);*/
 
 void server_cursor_destroy(struct server_cursor* cursor);
 

@@ -47,7 +47,7 @@ struct server {
 	struct wlr_xdg_shell *xdg_shell;
 	struct wl_listener new_xdg_toplevel;
 	struct wl_listener new_xdg_popup;
-	struct client_xdg_toplevel* current_focus;
+	//struct client_xdg_toplevel* current_focus;
 
 	struct wlr_layer_shell_v1 *layer_shell;
 	struct wl_listener new_layer_surface;
@@ -69,15 +69,12 @@ struct server {
 
 
 	//inputs
-	struct wlr_seat* seat;
+	struct seat* seat;
+	struct wl_list seats;
 
-	struct wl_list keyboards;
-	struct wl_list pointers;
 
 	struct wl_listener new_input;
 
-	struct server_keyboard* keyboard;
-	struct server_cursor *cursor;
 
 };
 

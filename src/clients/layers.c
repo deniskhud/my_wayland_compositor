@@ -2,6 +2,7 @@
 #include <src/include/server.h>
 
 #include "src/include/output.h"
+#include "src/include/seat.h"
 #include "src/include/input/cursor.h"
 
 
@@ -12,7 +13,7 @@ void handle_new_layer_surface(struct wl_listener *listener, void *data) {
 	wlr_log(WLR_INFO, "New layer surface surface, ENTER TO FUNCTION");
 	if (!layer_surface->output) {
 		struct wlr_output* output = wlr_output_layout_output_at(server->output_layout,
-			server->cursor->wlr_cursor->x, server->cursor->wlr_cursor->y);
+			server->seat->cursor->wlr_cursor->x, server->seat->cursor->wlr_cursor->y);
 		if (!output) {
 			wlr_log(WLR_INFO,
 				"No output available to assign layer surface");
